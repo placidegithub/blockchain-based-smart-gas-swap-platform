@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn, shortenAddress, formatDate } from '@/lib/utils';
-import { getCylinderPrice, formatRWF } from '@/lib/payment';
-import { Banknote, XCircle, Loader2 } from 'lucide-react';
+import { getCylinderPrice, formatRWF, getVoucherPaymentStatus } from '@/lib/payment';
+import { isVoucherAlreadyPaid } from '@/lib/fund-storage';
+import { Banknote, XCircle, Loader2, AlertCircle } from 'lucide-react';
 
 export interface Transaction {
   voucherId: bigint;
@@ -20,7 +21,7 @@ export interface Transaction {
   companyName?: string;
   branchName?: string;
   timestamp: number;
-  status: 'pending' | 'completed' | 'failed';
+  status: 'active' | 'redeemed' | 'expired';
   paymentStatus?: 'unpaid' | 'paid' | 'cancelled';
   txHash?: string;
 }
@@ -36,9 +37,9 @@ interface TransactionListProps {
 }
 
 const statusColors = {
-  pending: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30',
-  completed: 'text-green-400 bg-green-500/10 border-green-500/30',
-  failed: 'text-red-400 bg-red-500/10 border-red-500/30',
+  active: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
+  redeemed: 'text-green-400 bg-green-500/10 border-green-500/30',
+  expired: 'text-red-400 bg-red-500/10 border-red-500/30',
 };
 
 const typeColors = {
@@ -192,6 +193,19 @@ export function TransactionList({
                           className="flex-1 bg-emerald-600 hover:bg-emerald-700"
                           onClick={(e) => {
                             e.stopPropagation();
+                            // Double-check payment status before proceeding
+                            const voucherIdStr = tx.voucherId.toString();
+                            if (isVoucherAlreadyPaid(voucherIdStr)) {
+                              alert('This voucher has already been paid. Refreshing status...');
+                              window.location.reload();
+                              return;
+                            }
+                            const existingStatus = getVoucherPaymentStatus(voucherIdStr);
+                            if (existingStatus?.status === 'paid') {
+                              alert('This voucher has already been paid. Refreshing status...');
+                              window.location.reload();
+                              return;
+                            }
                             setProcessingPayment(txKey);
                             onPayment(tx.voucherId, tx.customerPhone || '', tx.cylinderType);
                           }}

@@ -280,8 +280,8 @@ export default function ReportsPage() {
                 <tbody className="divide-y divide-border">
                   {transactions.map((tx) => {
                     const paymentStatus = getPaymentStatusForVoucher(tx.voucherId);
-                    const isPending = tx.status === 'pending' && tx.type === 'deposit';
-                    const canPay = isPending && paymentStatus === 'unpaid';
+                    const isActive = tx.status === 'active' && tx.type === 'deposit';
+                    const canPay = isActive && paymentStatus === 'unpaid';
                     
                     return (
                       <tr key={tx.voucherId.toString()} className="text-sm">
@@ -314,9 +314,9 @@ export default function ReportsPage() {
                         <td className="py-3">
                           <span className={cn(
                             'px-2 py-1 rounded text-xs font-medium capitalize border',
-                            tx.status === 'completed' && 'text-green-400 bg-green-500/10 border-green-500/30',
-                            tx.status === 'pending' && 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30',
-                            tx.status === 'failed' && 'text-red-400 bg-red-500/10 border-red-500/30'
+                            tx.status === 'redeemed' && 'text-green-400 bg-green-500/10 border-green-500/30',
+                            tx.status === 'active' && 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
+                            tx.status === 'expired' && 'text-red-400 bg-red-500/10 border-red-500/30'
                           )}>
                             {tx.status}
                           </span>

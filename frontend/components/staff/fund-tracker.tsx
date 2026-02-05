@@ -8,6 +8,9 @@ import {
   getTodaysFundSummary,
   getRecentPayments,
   formatRWF,
+  syncPaymentRecordsFromVoucherStatus,
+  deduplicatePayments,
+  clearFundRecords,
   FundSummary,
   PaymentRecord,
 } from '@/lib/fund-storage';
@@ -29,6 +32,7 @@ export function FundTracker({ className }: FundTrackerProps) {
   }, []);
 
   useEffect(() => {
+    // Refresh the display
     refreshData();
     
     const interval = setInterval(refreshData, 5000);
@@ -38,11 +42,19 @@ export function FundTracker({ className }: FundTrackerProps) {
         refreshData();
       }
     };
+    
+    // Listen for custom payment events for immediate updates
+    const handlePaymentAdded = () => {
+      refreshData();
+    };
+    
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('gasswap_payment_added', handlePaymentAdded);
     
     return () => {
       clearInterval(interval);
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('gasswap_payment_added', handlePaymentAdded);
     };
   }, [refreshData]);
 
@@ -56,6 +68,19 @@ export function FundTracker({ className }: FundTrackerProps) {
             <CardTitle className="text-lg">Fund Tracker</CardTitle>
             <CardDescription>Collected payments</CardDescription>
           </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (confirm('Clear all fund records?')) {
+                  clearFundRecords();
+                  refreshData();
+                }
+              }}
+              className="text-xs text-muted-foreground hover:text-red-400 transition-colors"
+              title="Clear all records"
+            >
+              Clear
+            </button>
           <div className="flex gap-1 bg-muted rounded-lg p-1">
             <button
               onClick={() => setViewMode('today')}
@@ -79,6 +104,7 @@ export function FundTracker({ className }: FundTrackerProps) {
             >
               All Time
             </button>
+          </div>
           </div>
         </div>
       </CardHeader>

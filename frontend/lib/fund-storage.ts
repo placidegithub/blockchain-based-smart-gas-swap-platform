@@ -44,8 +44,25 @@ function savePayments(payments: PaymentRecord[]): void {
   }
 }
 
-export function addPaymentRecord(record: Omit<PaymentRecord, "id" | "timestamp">): PaymentRecord {
+export function isVoucherAlreadyPaid(voucherId: string): boolean {
   const payments = getPayments();
+  return payments.some(p => p.voucherId === voucherId);
+}
+
+export function getPaymentByVoucherId(voucherId: string): PaymentRecord | null {
+  const payments = getPayments();
+  return payments.find(p => p.voucherId === voucherId) || null;
+}
+
+export function addPaymentRecord(record: Omit<PaymentRecord, "id" | "timestamp">): PaymentRecord | null {
+  const payments = getPayments();
+  
+  // Prevent duplicate payments for the same voucher
+  const existingPayment = payments.find(p => p.voucherId === record.voucherId);
+  if (existingPayment) {
+    console.warn(`Payment already exists for voucher ${record.voucherId}, skipping duplicate`);
+    return null;
+  }
   
   const newRecord: PaymentRecord = {
     ...record,
@@ -55,6 +72,11 @@ export function addPaymentRecord(record: Omit<PaymentRecord, "id" | "timestamp">
   
   payments.unshift(newRecord);
   savePayments(payments);
+  
+  // Dispatch custom event to notify components of payment update
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent('gasswap_payment_added', { detail: newRecord }));
+  }
   
   return newRecord;
 }
@@ -140,4 +162,95 @@ export function formatRWF(amount: number): string {
 export function clearFundRecords(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(FUND_STORAGE_KEY);
+  
+  // Also clear all voucher payment status entries
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith('voucher_payment_')) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach(key => localStorage.removeItem(key));
+  
+  // Dispatch event to notify components
+  window.dispatchEvent(new CustomEvent('gasswap_payment_added', { detail: { cleared: true } }));
+}
+
+export function deduplicatePayments(): number {
+  if (typeof window === "undefined") return 0;
+  
+  const payments = getPayments();
+  const seen = new Set<string>();
+  const uniquePayments: PaymentRecord[] = [];
+  
+  for (const payment of payments) {
+    if (!seen.has(payment.voucherId)) {
+      seen.add(payment.voucherId);
+      uniquePayments.push(payment);
+    }
+  }
+  
+  const removed = payments.length - uniquePayments.length;
+  if (removed > 0) {
+    savePayments(uniquePayments);
+    window.dispatchEvent(new CustomEvent('gasswap_payment_added', { detail: { deduplicated: removed } }));
+  }
+  
+  return removed;
+}
+
+// Sync payment records from voucher payment status to fund storage
+// This fixes any inconsistencies between the two storage systems
+export function syncPaymentRecordsFromVoucherStatus(): number {
+  if (typeof window === "undefined") return 0;
+  
+  let synced = 0;
+  const payments = getPayments();
+  const existingVoucherIds = new Set(payments.map(p => p.voucherId));
+  
+  // Scan localStorage for voucher payment statuses
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith('voucher_payment_')) {
+      try {
+        const voucherId = key.replace('voucher_payment_', '');
+        
+        // Skip if already in fund storage
+        if (existingVoucherIds.has(voucherId)) continue;
+        
+        const stored = localStorage.getItem(key);
+        if (!stored) continue;
+        
+        const data = JSON.parse(stored);
+        if (data.status === 'paid' && data.amount && data.amount > 0) {
+          // Add to fund storage
+          const method: PaymentMethod = data.method === 'cash' ? 'cash' : 'mobile_money';
+          const newRecord: PaymentRecord = {
+            id: `payment_sync_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            voucherId,
+            amount: data.amount,
+            method,
+            timestamp: data.paidAt ? new Date(data.paidAt).getTime() : Date.now(),
+            transactionRef: data.transactionRef,
+          };
+          
+          payments.unshift(newRecord);
+          existingVoucherIds.add(voucherId);
+          synced++;
+        }
+      } catch (e) {
+        console.error('Failed to sync payment record:', e);
+      }
+    }
+  }
+  
+  if (synced > 0) {
+    savePayments(payments);
+    // Dispatch event to notify components
+    window.dispatchEvent(new CustomEvent('gasswap_payment_added', { detail: { synced } }));
+    console.log(`Synced ${synced} payment records to fund storage`);
+  }
+  
+  return synced;
 }

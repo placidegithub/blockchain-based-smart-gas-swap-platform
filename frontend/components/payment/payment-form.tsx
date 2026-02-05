@@ -77,14 +77,16 @@ export function PaymentForm({
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [paymentStatus, transactionRef, statusCheckCount, onPaymentComplete]);
+  }, [paymentStatus, transactionRef, statusCheckCount, onPaymentComplete, voucherId, amount, customerPhone]);
 
   const handleCashPayment = () => {
+    console.log('[handleCashPayment] voucherId:', voucherId, 'cylinderType:', cylinderType, 'amount:', amount);
     const ref = generateTransactionRef();
     setTransactionRef(ref);
     setPaymentStatus('completed');
-    // Save to localStorage
-    markVoucherAsPaid(voucherId, ref, 'cash', amount, customerPhone);
+    // Save to localStorage and fund tracker
+    const result = markVoucherAsPaid(voucherId, ref, 'cash', amount, customerPhone);
+    console.log('[handleCashPayment] markVoucherAsPaid result:', result);
     onPaymentComplete?.(ref);
   };
 

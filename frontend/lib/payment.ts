@@ -1,5 +1,5 @@
 // HdevPayment API Integration for MTN Mobile Money
-import { addPaymentRecord, type PaymentMethod as FundPaymentMethod } from './fund-storage';
+import { addPaymentRecord, isVoucherAlreadyPaid, type PaymentMethod as FundPaymentMethod } from './fund-storage';
 
 export interface PaymentRequest {
   phone: string;
@@ -151,7 +151,36 @@ export function getVoucherPaymentStatus(voucherId: string): VoucherPaymentData |
   return null;
 }
 
-export function markVoucherAsPaid(voucherId: string, transactionRef: string, method: 'cash' | 'momo', amount?: number, customerPhone?: string): void {
+export function markVoucherAsPaid(voucherId: string, transactionRef: string, method: 'cash' | 'momo', amount?: number, customerPhone?: string): boolean {
+  console.log('[markVoucherAsPaid] Called with:', { voucherId, transactionRef, method, amount, customerPhone });
+  
+  // Check if already in fund storage (most reliable check for duplicate prevention)
+  if (isVoucherAlreadyPaid(voucherId)) {
+    console.warn(`Voucher ${voucherId} already in fund storage, preventing duplicate payment`);
+    return false;
+  }
+  
+  // Check localStorage payment status as well, but allow syncing to fund if needed
+  const existingStatus = getVoucherPaymentStatus(voucherId);
+  if (existingStatus?.status === 'paid') {
+    console.log(`Voucher ${voucherId} marked as paid in localStorage but not in fund storage - syncing...`);
+    
+    const syncAmount = existingStatus.amount || amount || 0;
+    if (syncAmount > 0) {
+      const fundMethod: FundPaymentMethod = (existingStatus.method || method) === 'cash' ? 'cash' : 'mobile_money';
+      const result = addPaymentRecord({
+        voucherId,
+        amount: syncAmount,
+        method: fundMethod,
+        customerPhone,
+        transactionRef: existingStatus.transactionRef || transactionRef,
+      });
+      console.log('[markVoucherAsPaid] Sync addPaymentRecord result:', result);
+    }
+    return true;
+  }
+  
+  // Save to localStorage voucher status
   saveVoucherPaymentStatus(voucherId, {
     status: 'paid',
     transactionRef,
@@ -160,17 +189,23 @@ export function markVoucherAsPaid(voucherId: string, transactionRef: string, met
     paidAt: new Date().toISOString(),
   });
   
-  // Also add to fund tracker
-  if (amount && amount > 0) {
+  // Add to fund tracker - always add if we have a valid amount
+  const paymentAmount = amount || 0;
+  if (paymentAmount > 0) {
     const fundMethod: FundPaymentMethod = method === 'cash' ? 'cash' : 'mobile_money';
-    addPaymentRecord({
+    const result = addPaymentRecord({
       voucherId,
-      amount,
+      amount: paymentAmount,
       method: fundMethod,
       customerPhone,
       transactionRef,
     });
+    console.log('[markVoucherAsPaid] addPaymentRecord result:', result);
+  } else {
+    console.warn('[markVoucherAsPaid] Amount is 0 or undefined, not adding to fund tracker');
   }
+  
+  return true;
 }
 
 export function markVoucherAsCancelled(voucherId: string): void {

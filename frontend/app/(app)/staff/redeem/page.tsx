@@ -145,6 +145,21 @@ export default function RedeemVoucherPage() {
     return null;
   }, [cylinderTypeInfo, voucher?.cylinderTypeId, cylinderTypes]);
 
+  // Filter available cylinders to only show ones matching the voucher's cylinder type
+  const filteredCylinders = useMemo(() => {
+    if (!cylinderType || !availableCylinders.length) return availableCylinders;
+    
+    const weightKg = Number(cylinderType.weightKg);
+    // Filter by matching cylinder type (serial format: CYL-BXXX-Xkg-XX)
+    return availableCylinders.filter(serial => {
+      const match = serial.match(/(\d+)kg/i);
+      if (match) {
+        return parseInt(match[1], 10) === weightKg;
+      }
+      return false;
+    });
+  }, [availableCylinders, cylinderType]);
+
   const sourceDistrictName = useMemo(() => {
     if (sourceBranch?.districtId !== undefined) {
       return RWANDA_DISTRICTS[Number(sourceBranch.districtId)]?.name || `District ${sourceBranch.districtId}`;
@@ -586,7 +601,7 @@ export default function RedeemVoucherPage() {
                                   <div className="animate-spin h-4 w-4 border-2 border-cyan-500 border-t-transparent rounded-full" />
                                   Loading available cylinders...
                                 </div>
-                              ) : availableCylinders.length > 0 ? (
+                              ) : filteredCylinders.length > 0 ? (
                                 <>
                                   <select
                                     className={cn(
@@ -598,23 +613,24 @@ export default function RedeemVoucherPage() {
                                     onChange={(e) => setNewCylinderSerial(e.target.value)}
                                     disabled={isRedeeming}
                                   >
-                                    <option value="">Select an available cylinder...</option>
-                                    {availableCylinders.map((serial) => (
+                                    <option value="">Select a {cylinderType ? `${Number(cylinderType.weightKg)}kg` : ''} cylinder...</option>
+                                    {filteredCylinders.map((serial) => (
                                       <option key={serial} value={serial}>
                                         {serial}
                                       </option>
                                     ))}
                                   </select>
                                   <p className="text-xs text-muted-foreground">
-                                    {availableCylinders.length} cylinder(s) available at this branch
+                                    {filteredCylinders.length} matching {cylinderType ? `${Number(cylinderType.weightKg)}kg` : ''} cylinder(s) available
                                   </p>
                                 </>
                               ) : (
                                 <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-                                  <p className="font-medium">No cylinders available at this branch</p>
+                                  <p className="font-medium">No {cylinderType ? `${Number(cylinderType.weightKg)}kg` : ''} cylinders available at this branch</p>
                                   <p className="text-xs mt-1 text-red-300">
-                                    Cylinders must be registered in the system before they can be used for redemption.
-                                    Contact an administrator to register cylinders for this branch, or select a different district.
+                                    {availableCylinders.length > 0 
+                                      ? `There are ${availableCylinders.length} cylinder(s) at this branch, but none match the required ${cylinderType ? `${Number(cylinderType.weightKg)}kg` : ''} type.`
+                                      : 'Cylinders must be registered in the system before they can be used for redemption. Contact an administrator to register cylinders for this branch, or select a different district.'}
                                   </p>
                                 </div>
                               )}

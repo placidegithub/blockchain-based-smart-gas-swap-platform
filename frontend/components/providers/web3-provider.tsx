@@ -32,8 +32,10 @@ export function Web3Provider({ children }: Web3ProviderProps) {
 
   useEffect(() => {
     try {
+      // Force mount immediately
       setMounted(true);
     } catch (err) {
+      console.error('Web3Provider mount error:', err);
       setError(err instanceof Error ? err.message : 'Failed to initialize');
     }
   }, []);

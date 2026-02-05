@@ -11,13 +11,15 @@ import { CompleteSwapForm } from './complete-swap-form';
 import { TransactionList, Transaction } from './transaction-list';
 import { FundTracker } from './fund-tracker';
 import { PaymentForm } from '@/components/payment';
+import { TransactionHistory } from '@/components/shared';
 import { getCylinderPrice, formatRWF, getVoucherPaymentStatus, markVoucherAsCancelled, markVoucherAsPaid } from '@/lib/payment';
+import { isVoucherAlreadyPaid } from '@/lib/fund-storage';
 
 interface StaffDashboardProps {
   className?: string;
 }
 
-type ActiveView = 'dashboard' | 'new-deposit' | 'scan-voucher' | 'payment';
+type ActiveView = 'dashboard' | 'new-deposit' | 'scan-voucher' | 'payment' | 'transaction-history';
 
 interface PaymentContext {
   voucherId: bigint;
@@ -181,6 +183,32 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
   }
 
   if (activeView === 'payment' && paymentContext) {
+    // Double-check payment status before showing payment form
+    const voucherIdStr = paymentContext.voucherId.toString();
+    if (isVoucherAlreadyPaid(voucherIdStr)) {
+      return (
+        <div className={cn('w-full', className)}>
+          <div className="mb-6">
+            <Button variant="ghost" onClick={() => { setActiveView('dashboard'); setPaymentContext(null); }}>
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Dashboard
+            </Button>
+          </div>
+          <div className="flex flex-col items-center p-8">
+            <div className="rounded-full bg-green-500/20 p-4 mb-4">
+              <svg className="h-12 w-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-green-400 mb-2">Already Paid</h2>
+            <p className="text-muted-foreground">This voucher has already been paid.</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className={cn('w-full', className)}>
         <div className="mb-6">
@@ -202,6 +230,27 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
             onSkip={() => { setActiveView('dashboard'); setPaymentContext(null); }}
           />
         </div>
+      </div>
+    );
+  }
+
+  if (activeView === 'transaction-history') {
+    return (
+      <div className={cn('w-full', className)}>
+        <div className="mb-6">
+          <Button variant="ghost" onClick={() => setActiveView('dashboard')}>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Dashboard
+          </Button>
+        </div>
+        <TransactionHistory
+          title="All Transactions"
+          description="Complete transaction history with payment management"
+          limit={20}
+          showPaymentActions={true}
+        />
       </div>
     );
   }
@@ -317,6 +366,16 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                 </svg>
                 Scan Voucher
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => setActiveView('transaction-history')}
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Transaction History
               </Button>
               <Link href="/staff/reports">
                 <Button

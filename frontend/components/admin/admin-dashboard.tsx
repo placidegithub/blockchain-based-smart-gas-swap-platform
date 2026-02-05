@@ -13,6 +13,7 @@ import { StaffRoleManager } from './staff-role-manager';
 import { AddCompanyForm } from './add-company-form';
 import { AddBranchForm } from './add-branch-form';
 import { AddCylinderForm } from './add-cylinder-form';
+import { TransactionHistory } from '@/components/shared';
 
 interface AdminDashboardProps {
   className?: string;
@@ -26,7 +27,8 @@ type ActiveView =
   | 'staff' 
   | 'add-company' 
   | 'add-branch' 
-  | 'add-cylinder';
+  | 'add-cylinder'
+  | 'transactions';
 
 interface StatCardProps {
   title: string;
@@ -170,6 +172,20 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
     );
   }
 
+  if (activeView === 'transactions') {
+    return (
+      <div className={cn('w-full', className)}>
+        {renderBackButton()}
+        <TransactionHistory
+          title="Platform Transaction History"
+          description="All voucher transactions across the platform"
+          limit={20}
+          showPaymentActions={true}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={cn('w-full space-y-6', className)}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -273,6 +289,16 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
               Register Cylinder
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => setActiveView('transactions')}
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Transaction History
             </Button>
             <Button
               variant="ghost"
