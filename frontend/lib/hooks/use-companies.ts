@@ -206,12 +206,12 @@ export function useAddCompany() {
     useCompanyManagerWrite();
 
   const addCompany = useCallback(
-    async (name: string, code: string) => {
+    async (name: string, code: string, adminWallet: `0x${string}`) => {
       if (!isPlatformAdmin) {
         throw new Error("Unauthorized: Must be platform admin");
       }
 
-      return writeAsync("addCompany", [name, code]);
+      return writeAsync("registerCompany", [name, code, adminWallet]);
     },
     [writeAsync, isPlatformAdmin]
   );

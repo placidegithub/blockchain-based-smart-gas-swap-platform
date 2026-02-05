@@ -15,6 +15,7 @@ interface AddCompanyFormProps {
 export function AddCompanyForm({ className, onSuccess }: AddCompanyFormProps) {
   const [companyName, setCompanyName] = useState('');
   const [companyCode, setCompanyCode] = useState('');
+  const [adminWallet, setAdminWallet] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const {
@@ -37,6 +38,7 @@ export function AddCompanyForm({ className, onSuccess }: AddCompanyFormProps) {
       });
       setCompanyName('');
       setCompanyCode('');
+      setAdminWallet('');
       onSuccess?.();
     }
   }, [isSuccess, txHash, companyName, onSuccess]);
@@ -71,14 +73,19 @@ export function AddCompanyForm({ className, onSuccess }: AddCompanyFormProps) {
         return;
       }
 
+      if (!adminWallet.trim() || !adminWallet.startsWith('0x') || adminWallet.length !== 42) {
+        setMessage({ type: 'error', text: 'Valid admin wallet address is required (0x...)' });
+        return;
+      }
+
       try {
-        await addCompany(companyName.trim(), companyCode.trim().toUpperCase());
+        await addCompany(companyName.trim(), companyCode.trim().toUpperCase(), adminWallet.trim() as `0x${string}`);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to add company';
         setMessage({ type: 'error', text: errorMessage });
       }
     },
-    [companyName, companyCode, addCompany, reset]
+    [companyName, companyCode, adminWallet, addCompany, reset]
   );
 
   if (isLoadingRoles) {
@@ -146,6 +153,22 @@ export function AddCompanyForm({ className, onSuccess }: AddCompanyFormProps) {
             </p>
           </div>
 
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              Admin Wallet Address
+            </label>
+            <Input
+              placeholder="0x..."
+              value={adminWallet}
+              onChange={(e) => setAdminWallet(e.target.value)}
+              variant="glow"
+              disabled={isPending}
+            />
+            <p className="text-xs text-muted-foreground">
+              Wallet address of the company administrator
+            </p>
+          </div>
+
           {message && (
             <div
               className={cn(
@@ -178,7 +201,7 @@ export function AddCompanyForm({ className, onSuccess }: AddCompanyFormProps) {
           <Button
             type="submit"
             className="w-full"
-            disabled={isPending || !companyName.trim() || !companyCode.trim()}
+            disabled={isPending || !companyName.trim() || !companyCode.trim() || !adminWallet.trim()}
             loading={isPending}
           >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
