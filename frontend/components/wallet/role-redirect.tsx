@@ -1,0 +1,55 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { usePrimaryRole } from '@/lib/hooks/use-roles';
+import { useWallet } from '@/lib/hooks/use-wallet';
+
+interface RoleRedirectProps {
+  children: React.ReactNode;
+}
+
+export function RoleRedirect({ children }: RoleRedirectProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { isConnected } = useWallet();
+  const { primaryRole, isLoading } = usePrimaryRole();
+
+  useEffect(() => {
+    if (!isConnected || isLoading || !primaryRole) return;
+
+    // Define role-based default paths
+    const roleDefaultPaths: Record<string, string> = {
+      admin: '/admin',
+      staff: '/staff',
+      customer: '/dashboard',
+    };
+
+    // Define restricted paths for each role
+    const roleRestrictedPaths: Record<string, string[]> = {
+      admin: ['/staff'], // Admin should not access staff pages
+      staff: ['/admin'], // Staff should not access admin pages
+      customer: ['/admin', '/staff'], // Customers should not access admin or staff
+    };
+
+    // Check if current path is restricted for this role
+    const restrictedPaths = roleRestrictedPaths[primaryRole] || [];
+    const isRestricted = restrictedPaths.some(path => pathname.startsWith(path));
+
+    if (isRestricted) {
+      // Redirect to role's default page
+      const defaultPath = roleDefaultPaths[primaryRole] || '/dashboard';
+      router.replace(defaultPath);
+    }
+
+    // Auto-redirect from /dashboard to role-specific dashboard on first load
+    if (pathname === '/dashboard' && primaryRole !== 'customer') {
+      const defaultPath = roleDefaultPaths[primaryRole];
+      if (defaultPath) {
+        router.replace(defaultPath);
+      }
+    }
+  }, [isConnected, isLoading, primaryRole, pathname, router]);
+
+  return <>{children}</>;
+}

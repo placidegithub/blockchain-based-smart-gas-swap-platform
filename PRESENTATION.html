@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Gas Cylinder Swap Platform - Academic Presentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        
+        .slide {
+            min-height: 100vh;
+            padding: 60px 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border-bottom: 3px solid #0f3460;
+            page-break-after: always;
+        }
+        
+        .slide-title {
+            background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+        }
+        
+        .slide-content {
+            background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);
+        }
+        
+        .slide-stats {
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
+        }
+        
+        .slide-payment {
+            background: linear-gradient(135deg, #0f3460 0%, #e94560 20%, #0f3460 100%);
+        }
+        
+        h1 {
+            font-size: 3.5rem;
+            color: #e94560;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        h2 {
+            font-size: 2.8rem;
+            color: #e94560;
+            margin-bottom: 40px;
+            border-bottom: 3px solid #e94560;
+            padding-bottom: 15px;
+        }
+        
+        h3 {
+            font-size: 1.8rem;
+            color: #00d9ff;
+            margin-bottom: 20px;
+        }
+        
+        p {
+            font-size: 1.4rem;
+            line-height: 1.8;
+            margin-bottom: 20px;
+            color: #ccc;
+        }
+        
+        .subtitle {
+            font-size: 2rem;
+            color: #00d9ff;
+            margin-bottom: 40px;
+        }
+        
+        .author-info {
+            margin-top: 60px;
+            padding: 30px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            border-left: 5px solid #e94560;
+        }
+        
+        .author-info p {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+        
+        ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        li {
+            font-size: 1.4rem;
+            padding: 15px 0;
+            padding-left: 40px;
+            position: relative;
+            color: #ccc;
+            line-height: 1.6;
+        }
+        
+        li::before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            color: #e94560;
+            font-size: 1.5rem;
+        }
+        
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            margin-top: 30px;
+        }
+        
+        .column {
+            background: rgba(255,255,255,0.03);
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .stat-box {
+            background: linear-gradient(135deg, rgba(233,69,96,0.2) 0%, rgba(0,217,255,0.1) 100%);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            border: 2px solid rgba(233,69,96,0.3);
+            margin: 20px 0;
+        }
+        
+        .stat-number {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #00d9ff;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 1.2rem;
+            color: #ccc;
+            margin-top: 10px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin-top: 40px;
+        }
+        
+        .price-card {
+            background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            border: 3px solid #00d9ff;
+            transition: transform 0.3s;
+        }
+        
+        .price-card:hover {
+            transform: scale(1.02);
+        }
+        
+        .price-size {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #00d9ff;
+        }
+        
+        .price-amount {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #e94560;
+            margin: 20px 0;
+        }
+        
+        .price-currency {
+            font-size: 1.2rem;
+            color: #ccc;
+        }
+        
+        .diagram-box {
+            background: rgba(0,0,0,0.3);
+            padding: 40px;
+            border-radius: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            line-height: 1.4;
+            white-space: pre;
+            overflow-x: auto;
+            margin: 30px 0;
+            border: 1px solid #0f3460;
+        }
+        
+        .highlight-box {
+            background: linear-gradient(135deg, rgba(233,69,96,0.1) 0%, rgba(0,217,255,0.1) 100%);
+            padding: 30px;
+            border-radius: 15px;
+            border-left: 5px solid #e94560;
+            margin: 30px 0;
+        }
+        
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .tech-item {
+            background: rgba(0,217,255,0.1);
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid rgba(0,217,255,0.3);
+        }
+        
+        .tech-item h4 {
+            color: #00d9ff;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+        }
+        
+        .tech-item p {
+            font-size: 1rem;
+            color: #aaa;
+            margin: 0;
+        }
+        
+        .notification-box {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            background: rgba(255,255,255,0.05);
+            padding: 30px;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+        
+        .notification-icon {
+            font-size: 3rem;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #e94560 0%, #0f3460 100%);
+            border-radius: 50%;
+        }
+        
+        .notification-content h4 {
+            color: #00d9ff;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .notification-content p {
+            font-size: 1.1rem;
+            margin: 0;
+        }
+        
+        /* Chart Styles */
+        .bar-chart {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            height: 300px;
+            padding: 20px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 15px;
+            margin: 30px 0;
+        }
+        
+        .bar-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            margin: 0 10px;
+        }
+        
+        .bar {
+            width: 60px;
+            background: linear-gradient(to top, #e94560, #00d9ff);
+            border-radius: 8px 8px 0 0;
+            transition: height 0.5s ease;
+            position: relative;
+        }
+        
+        .bar-value {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-weight: bold;
+            color: #00d9ff;
+            font-size: 1rem;
+        }
+        
+        .bar-label {
+            margin-top: 15px;
+            text-align: center;
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+        
+        .pie-chart-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 60px;
+            margin: 30px 0;
+        }
+        
+        .pie-chart {
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            background: conic-gradient(
+                #e94560 0deg 234deg,
+                #00d9ff 234deg 327.6deg,
+                #4ade80 327.6deg 349.2deg,
+                #fbbf24 349.2deg 360deg
+            );
+            position: relative;
+            box-shadow: 0 0 30px rgba(233,69,96,0.3);
+        }
+        
+        .pie-chart::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 100px;
+            background: #16213e;
+            border-radius: 50%;
+        }
+        
+        .pie-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        
+        .legend-text {
+            color: #ccc;
+            font-size: 1.1rem;
+        }
+        
+        .legend-value {
+            color: #00d9ff;
+            font-weight: bold;
+            margin-left: auto;
+        }
+        
+        .growth-chart {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            height: 250px;
+            padding: 20px 40px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 15px;
+            margin: 30px 0;
+            position: relative;
+        }
+        
+        .growth-bar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        
+        .growth-bar .bar {
+            width: 80px;
+        }
+        
+        .growth-line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            margin: 30px 0;
+        }
+        
+        .comparison-row {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 15px 20px;
+        }
+        
+        .comparison-label {
+            width: 200px;
+            color: #ccc;
+            font-size: 1.1rem;
+        }
+        
+        .comparison-bar-container {
+            flex: 1;
+            height: 30px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 0 20px;
+        }
+        
+        .comparison-bar-fill {
+            height: 100%;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 15px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        
+        .comparison-bar-fill.traditional {
+            background: linear-gradient(to right, #e94560, #ff6b6b);
+        }
+        
+        .comparison-bar-fill.blockchain {
+            background: linear-gradient(to right, #00d9ff, #4ade80);
+        }
+        
+        .timeline-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .timeline-row {
+            display: flex;
+            align-items: center;
+        }
+        
+        .timeline-label {
+            width: 180px;
+            color: #ccc;
+            font-size: 1rem;
+        }
+        
+        .timeline-bar-container {
+            flex: 1;
+            height: 35px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            position: relative;
+        }
+        
+        .timeline-bar-fill {
+            position: absolute;
+            height: 100%;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            color: white;
+            font-weight: 500;
+        }
+        
+        .slide-number {
+            position: fixed;
+            bottom: 20px;
+            right: 40px;
+            font-size: 1rem;
+            color: rgba(255,255,255,0.3);
+        }
+        
+        .logo {
+            font-size: 5rem;
+            margin-bottom: 30px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+        }
+        
+        th, td {
+            padding: 20px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        th {
+            background: rgba(233,69,96,0.2);
+            color: #00d9ff;
+            font-size: 1.2rem;
+        }
+        
+        td {
+            font-size: 1.1rem;
+            color: #ccc;
+        }
+        
+        .objective-number {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            background: #e94560;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 40px;
+            margin-right: 15px;
+            font-weight: bold;
+        }
+        
+        .flow-diagram {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 40px 0;
+            flex-wrap: wrap;
+        }
+        
+        .flow-step {
+            background: rgba(0,217,255,0.1);
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            flex: 1;
+            margin: 10px;
+            min-width: 150px;
+            border: 2px solid rgba(0,217,255,0.3);
+        }
+        
+        .flow-step h4 {
+            color: #00d9ff;
+            margin-bottom: 10px;
+        }
+        
+        .flow-arrow {
+            font-size: 2rem;
+            color: #e94560;
+        }
+        
+        @media print {
+            .slide {
+                page-break-after: always;
+                min-height: 100vh;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- SLIDE 1: Title Slide -->
+    <div class="slide slide-title">
+        <div class="logo">🔗⛽</div>
+        <h1>Blockchain-Based Smart Gas Cylinder Swap Platform</h1>
+        <p class="subtitle">For Cross-District Exchange in Rwanda</p>
+        
+        <div class="author-info">
+            <p><strong>Degree Program:</strong> Bachelor of Technology in Information Technology</p>
+            <p><strong>Academic Year:</strong> 2025-2026</p>
+            <p><strong>Date:</strong> February 03, 2026</p>
+        </div>
+    </div>
+
+    <!-- SLIDE 2: Presentation Outline -->
+    <div class="slide slide-content">
+        <h2>📋 Presentation Outline</h2>
+        
+        <ul>
+            <li><strong>Introduction</strong> - Project Overview & Technology</li>
+            <li><strong>Problem Statement</strong> - Current Challenges in LPG Distribution</li>
+            <li><strong>Objectives</strong> - General and Specific Goals</li>
+            <li><strong>Methodology</strong> - Development Approach & Tech Stack</li>
+            <li><strong>Scope</strong> - Features, Payments & Notifications</li>
+            <li><strong>Expected Impact</strong> - Statistics & Benefits</li>
+        </ul>
+    </div>
+
+    <!-- SLIDE 3: Introduction -->
+    <div class="slide slide-content">
+        <h2>1️⃣ Introduction</h2>
+        
+        <div class="highlight-box">
+            <h3>What is this project?</h3>
+            <p>A <strong>fully decentralized blockchain-based platform</strong> that enables customers to deposit gas cylinders at one branch and redeem equivalent cylinders at any other branch of the same company across Rwanda.</p>
+        </div>
+        
+        <div class="two-column">
+            <div class="column">
+                <h3>The Challenge</h3>
+                <p>Rwanda's law prohibits transporting gas cylinders on public buses due to safety concerns, creating inconvenience for citizens traveling between districts.</p>
+            </div>
+            <div class="column">
+                <h3>The Solution</h3>
+                <p>A blockchain-powered voucher system that allows customers to "swap" their cylinder for a digital NFT voucher, redeemable at any branch.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 4: Why Blockchain? -->
+    <div class="slide slide-content">
+        <h2>🔗 Why Blockchain Technology?</h2>
+        
+        <div class="tech-stack">
+            <div class="tech-item">
+                <h4>🔒 Immutability</h4>
+                <p>Records cannot be altered or deleted</p>
+            </div>
+            <div class="tech-item">
+                <h4>👁️ Transparency</h4>
+                <p>All transactions publicly verifiable</p>
+            </div>
+            <div class="tech-item">
+                <h4>🌐 Decentralization</h4>
+                <p>No single point of failure</p>
+            </div>
+            <div class="tech-item">
+                <h4>⚡ Automation</h4>
+                <p>Smart contracts execute automatically</p>
+            </div>
+        </div>
+        
+        <div class="highlight-box" style="margin-top: 40px;">
+            <h3>Key Advantage</h3>
+            <p>Multiple competing gas companies can share the same platform <strong>without trusting each other</strong> — they trust the blockchain protocol instead.</p>
+        </div>
+    </div>
+
+    <!-- SLIDE 5: Problem Statement -->
+    <div class="slide slide-content">
+        <h2>2️⃣ Problem Statement</h2>
+        
+        <h3>Current Challenges in Rwanda's LPG Distribution</h3>
+        
+        <table>
+            <tr>
+                <th>Problem</th>
+                <th>Impact</th>
+            </tr>
+            <tr>
+                <td>🚫 Transportation Ban</td>
+                <td>Citizens cannot carry gas cylinders on public buses</td>
+            </tr>
+            <tr>
+                <td>📝 Manual/Paper Vouchers</td>
+                <td>Easy to forge, lose, or dispute</td>
+            </tr>
+            <tr>
+                <td>🔒 Centralized Databases</td>
+                <td>Vulnerable to manipulation and single point of failure</td>
+            </tr>
+            <tr>
+                <td>❌ No Interoperability</td>
+                <td>Each company has isolated systems</td>
+            </tr>
+            <tr>
+                <td>⏱️ Manual Reconciliation</td>
+                <td>3-5 days to resolve voucher disputes</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- SLIDE 6: Statistics -->
+    <div class="slide slide-stats">
+        <h2>📊 Real Statistics - Rwanda LPG Market</h2>
+        
+        <div class="stats-grid">
+            <div class="stat-box">
+                <span class="stat-number">~14M</span>
+                <span class="stat-label">Total Population of Rwanda</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-number">~3M</span>
+                <span class="stat-label">Total Households in Rwanda</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-number">150,000+</span>
+                <span class="stat-label">Households Currently Using LPG</span>
+            </div>
+        </div>
+        
+        <div class="stats-grid" style="margin-top: 30px;">
+            <div class="stat-box">
+                <span class="stat-number">65%</span>
+                <span class="stat-label">Urban households using charcoal</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-number">24x</span>
+                <span class="stat-label">LPG growth target (2016→2024)</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-number">30</span>
+                <span class="stat-label">Districts across Rwanda</span>
+            </div>
+        </div>
+        
+        <div class="highlight-box" style="margin-top: 30px;">
+            <h3>Government Targets</h3>
+            <p><strong>2024:</strong> 240,000 tons LPG consumption (from 10,000 tons in 2016) | <strong>2030:</strong> 25% urban LPG penetration | <strong>Biomass reduction:</strong> 83% → 42%</p>
+        </div>
+        
+        <p style="text-align: center; margin-top: 20px; font-size: 0.9rem; color: #888;">Sources: MININFRA Energy Sector Strategic Plan 2018/19-2023/24, National Institute of Statistics Rwanda (EICV5), World Bank</p>
+    </div>
+
+    <!-- SLIDE 6B: LPG Growth Chart -->
+    <div class="slide slide-stats">
+        <h2>📈 LPG Market Growth Projection</h2>
+        
+        <h3 style="text-align: center; margin-bottom: 20px;">LPG Consumption Growth (Tons/Year)</h3>
+        
+        <div class="bar-chart">
+            <div class="bar-container">
+                <div class="bar" style="height: 20px;">
+                    <span class="bar-value">10K</span>
+                </div>
+                <div class="bar-label">2016<br><small>Baseline</small></div>
+            </div>
+            <div class="bar-container">
+                <div class="bar" style="height: 50px;">
+                    <span class="bar-value">25K</span>
+                </div>
+                <div class="bar-label">2018</div>
+            </div>
+            <div class="bar-container">
+                <div class="bar" style="height: 90px;">
+                    <span class="bar-value">45K</span>
+                </div>
+                <div class="bar-label">2020</div>
+            </div>
+            <div class="bar-container">
+                <div class="bar" style="height: 140px;">
+                    <span class="bar-value">80K</span>
+                </div>
+                <div class="bar-label">2022</div>
+            </div>
+            <div class="bar-container">
+                <div class="bar" style="height: 220px; background: linear-gradient(to top, #4ade80, #00d9ff);">
+                    <span class="bar-value" style="color: #4ade80;">240K</span>
+                </div>
+                <div class="bar-label">2024<br><small style="color:#4ade80;">Target</small></div>
+            </div>
+        </div>
+        
+        <div class="highlight-box">
+            <p style="text-align: center; margin: 0;"><strong>24x Growth Target:</strong> From 10,000 tons (2016) to 240,000 tons (2024) — Creating massive demand for efficient cylinder management systems</p>
+        </div>
+        
+        <p style="text-align: center; margin-top: 15px; font-size: 0.9rem; color: #888;">Source: Ministry of Infrastructure (MININFRA) Energy Sector Strategic Plan 2018/19-2023/24</p>
+    </div>
+
+    <!-- SLIDE 6C: Urban Fuel Usage Pie Chart -->
+    <div class="slide slide-content">
+        <h2>🔥 Urban Household Cooking Fuel Distribution</h2>
+        
+        <div class="pie-chart-container">
+            <div class="pie-chart"></div>
+            <div class="pie-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #e94560;"></div>
+                    <span class="legend-text">Charcoal</span>
+                    <span class="legend-value">65%</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00d9ff;"></div>
+                    <span class="legend-text">Firewood</span>
+                    <span class="legend-value">26%</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4ade80;"></div>
+                    <span class="legend-text">LPG Gas</span>
+                    <span class="legend-value">5-6%</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #fbbf24;"></div>
+                    <span class="legend-text">Electricity & Other</span>
+                    <span class="legend-value">~3%</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="highlight-box">
+            <h3>The Opportunity</h3>
+            <p>With <strong>65% of urban households</strong> still using charcoal, the transition to LPG represents a massive market opportunity. As more households adopt LPG, the need for an efficient, fraud-proof cylinder exchange system becomes critical.</p>
+        </div>
+        
+        <p style="text-align: center; margin-top: 15px; font-size: 0.9rem; color: #888;">Source: National Institute of Statistics Rwanda, EICV5 Survey 2018</p>
+    </div>
+
+    <!-- SLIDE 7: Objectives -->
+    <div class="slide slide-content">
+        <h2>3️⃣ Research Objectives</h2>
+        
+        <div class="highlight-box">
+            <h3>General Objective</h3>
+            <p>To design, develop, and evaluate a blockchain-based decentralized application (dApp) for smart gas cylinder exchange that enables <strong>secure, transparent, and interoperable</strong> voucher management across multiple gas companies and districts in Rwanda.</p>
+        </div>
+    </div>
+
+    <!-- SLIDE 8: Specific Objectives -->
+    <div class="slide slide-content">
+        <h2>📌 Specific Objectives</h2>
+        
+        <ul>
+            <li><span class="objective-number">1</span> <strong>Analyze</strong> existing blockchain implementations in supply chain management and LPG distribution sectors</li>
+            <li><span class="objective-number">2</span> <strong>Design</strong> comprehensive smart contract architecture representing cylinders and vouchers as blockchain tokens (NFTs)</li>
+            <li><span class="objective-number">3</span> <strong>Develop</strong> user-friendly dApp with interfaces for customers, staff, and administrators</li>
+            <li><span class="objective-number">4</span> <strong>Implement</strong> payment integration and SMS/Email notification systems</li>
+            <li><span class="objective-number">5</span> <strong>Evaluate</strong> system performance, security, and usability through testing</li>
+        </ul>
+    </div>
+
+    <!-- SLIDE 9: Methodology -->
+    <div class="slide slide-content">
+        <h2>4️⃣ Methodology</h2>
+        
+        <div class="two-column">
+            <div class="column">
+                <h3>Research Design</h3>
+                <ul>
+                    <li><strong>Design Science Research (DSR)</strong></li>
+                    <li>Mixed-methods approach</li>
+                    <li>Agile/Iterative development</li>
+                    <li>20-week development timeline</li>
+                </ul>
+            </div>
+            <div class="column">
+                <h3>Development Phases</h3>
+                <ul>
+                    <li>Phase 1: Analysis & Design (4 weeks)</li>
+                    <li>Phase 2: Smart Contracts (6 weeks)</li>
+                    <li>Phase 3: Frontend dApp (6 weeks)</li>
+                    <li>Phase 4: Testing & UAT (4 weeks)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 10: Technology Stack -->
+    <div class="slide slide-content">
+        <h2>🛠️ Technology Stack</h2>
+        
+        <div class="tech-stack">
+            <div class="tech-item">
+                <h4>Blockchain</h4>
+                <p>Polygon Network</p>
+            </div>
+            <div class="tech-item">
+                <h4>Smart Contracts</h4>
+                <p>Solidity 0.8.20</p>
+            </div>
+            <div class="tech-item">
+                <h4>Frontend</h4>
+                <p>Next.js + React</p>
+            </div>
+            <div class="tech-item">
+                <h4>Web3</h4>
+                <p>Ethers.js</p>
+            </div>
+        </div>
+        
+        <div class="tech-stack" style="margin-top: 20px;">
+            <div class="tech-item">
+                <h4>Wallet</h4>
+                <p>MetaMask</p>
+            </div>
+            <div class="tech-item">
+                <h4>Storage</h4>
+                <p>IPFS</p>
+            </div>
+            <div class="tech-item">
+                <h4>SMS</h4>
+                <p>Twilio API</p>
+            </div>
+            <div class="tech-item">
+                <h4>Email</h4>
+                <p>Nodemailer/SendGrid</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 11: System Architecture -->
+    <div class="slide slide-content">
+        <h2>🏗️ System Architecture</h2>
+        
+        <div class="flow-diagram">
+            <div class="flow-step">
+                <h4>👤 Customer</h4>
+                <p>Connect Wallet</p>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step">
+                <h4>🏪 Branch Staff</h4>
+                <p>Process Deposit</p>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step">
+                <h4>📜 Smart Contract</h4>
+                <p>Create Voucher NFT</p>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step">
+                <h4>📱 QR Code</h4>
+                <p>Sent to Customer</p>
+            </div>
+        </div>
+        
+        <div class="flow-diagram">
+            <div class="flow-step">
+                <h4>🏪 Any Branch</h4>
+                <p>Scan QR Code</p>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step">
+                <h4>✅ Verify</h4>
+                <p>Blockchain Validation</p>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step">
+                <h4>⛽ Redeem</h4>
+                <p>Get New Cylinder</p>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step">
+                <h4>📧 Notify</h4>
+                <p>SMS + Email</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 12: Scope -->
+    <div class="slide slide-content">
+        <h2>5️⃣ Scope of the Project</h2>
+        
+        <div class="two-column">
+            <div class="column">
+                <h3>✅ Included</h3>
+                <ul>
+                    <li>Smart contracts for cylinder & voucher management</li>
+                    <li>Customer, Staff, Admin interfaces</li>
+                    <li>Payment integration (RWF pricing)</li>
+                    <li>SMS & Email notifications</li>
+                    <li>QR code generation & scanning</li>
+                    <li>Multi-company support</li>
+                    <li>30-day voucher validity</li>
+                </ul>
+            </div>
+            <div class="column">
+                <h3>❌ Out of Scope</h3>
+                <ul>
+                    <li>Production mainnet deployment</li>
+                    <li>Cross-company exchange</li>
+                    <li>Native mobile apps (iOS/Android)</li>
+                    <li>IoT sensor integration</li>
+                    <li>Real company data integration</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 13: Payment Integration -->
+    <div class="slide slide-payment">
+        <h2>💰 Payment Integration</h2>
+        
+        <h3 style="text-align: center; margin-bottom: 40px;">Cylinder Swap Pricing (Rwanda Francs)</h3>
+        
+        <div class="stats-grid">
+            <div class="price-card">
+                <div class="price-size">6 KG</div>
+                <div class="price-amount">1,000 RWF</div>
+                <div class="price-currency">Small Household</div>
+            </div>
+            <div class="price-card">
+                <div class="price-size">12 KG</div>
+                <div class="price-amount">2,000 RWF</div>
+                <div class="price-currency">Medium Household</div>
+            </div>
+            <div class="price-card">
+                <div class="price-size">15 KG</div>
+                <div class="price-amount">2,500 RWF</div>
+                <div class="price-currency">Large/Commercial</div>
+            </div>
+        </div>
+        
+        <div class="highlight-box" style="margin-top: 40px;">
+            <h3>Payment Methods</h3>
+            <p>Integration with <strong>Mobile Money</strong> (MTN MoMo, Airtel Money) and digital wallets for instant, secure payments recorded on the blockchain.</p>
+        </div>
+    </div>
+
+    <!-- SLIDE 14: Notification System -->
+    <div class="slide slide-content">
+        <h2>📱 SMS & Email Notification System</h2>
+        
+        <div class="notification-box">
+            <div class="notification-icon">📱</div>
+            <div class="notification-content">
+                <h4>SMS Notifications (Twilio API)</h4>
+                <p>Instant SMS alerts for: voucher creation, redemption confirmation, expiration reminders, and balance updates. Sent to customer's registered phone number.</p>
+            </div>
+        </div>
+        
+        <div class="notification-box">
+            <div class="notification-icon">📧</div>
+            <div class="notification-content">
+                <h4>Email Notifications (Nodemailer/SendGrid)</h4>
+                <p>Detailed email receipts for: transaction confirmations, digital voucher copies, safety alerts, maintenance reminders, and account updates.</p>
+            </div>
+        </div>
+        
+        <div class="highlight-box">
+            <h3>Sample SMS Message</h3>
+            <p style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px;">
+                "Your voucher #1234 has been created! Cylinder: 12kg, Company: Kigaligas, Amount Paid: 2,000 RWF. Valid for 30 days. Show QR code at any branch to redeem."
+            </p>
+        </div>
+    </div>
+
+    <!-- SLIDE 15: Expected Impact -->
+    <div class="slide slide-stats">
+        <h2>📈 Expected Impact</h2>
+        
+        <div class="stats-grid">
+            <div class="stat-box">
+                <span class="stat-number">40%</span>
+                <span class="stat-label">Reduction in swap processing time</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-number">100%</span>
+                <span class="stat-label">Traceability of cylinder history</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-number">95%</span>
+                <span class="stat-label">Reduction in voucher fraud</span>
+            </div>
+        </div>
+        
+        <div class="two-column" style="margin-top: 40px;">
+            <div class="column">
+                <h3>For Customers</h3>
+                <ul>
+                    <li>Travel without carrying cylinders</li>
+                    <li>Instant voucher verification</li>
+                    <li>Real-time notifications</li>
+                    <li>Transparent transaction history</li>
+                </ul>
+            </div>
+            <div class="column">
+                <h3>For Companies</h3>
+                <ul>
+                    <li>Automated inter-branch settlement</li>
+                    <li>Reduced fraud losses</li>
+                    <li>Real-time analytics</li>
+                    <li>Customer trust improvement</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 15B: Comparison Chart -->
+    <div class="slide slide-content">
+        <h2>⚖️ Traditional vs Blockchain System Comparison</h2>
+        
+        <h3 style="text-align: center; margin-bottom: 30px;">Performance Metrics Comparison</h3>
+        
+        <div class="comparison-table">
+            <div class="comparison-row">
+                <div class="comparison-label">Processing Time</div>
+                <div class="comparison-bar-container">
+                    <div class="comparison-bar-fill traditional" style="width: 100%;">3-5 days</div>
+                </div>
+                <div class="comparison-bar-container">
+                    <div class="comparison-bar-fill blockchain" style="width: 8%;">5 sec</div>
+                </div>
+            </div>
+            <div class="comparison-row">
+                <div class="comparison-label">Fraud Rate</div>
+                <div class="comparison-bar-container">
+                    <div class="comparison-bar-fill traditional" style="width: 80%;">5-8%</div>
+                </div>
+                <div class="comparison-bar-container">
+                    <div class="comparison-bar-fill blockchain" style="width: 5%;">~0%</div>
+                </div>
+            </div>
+            <div class="comparison-row">
+                <div class="comparison-label">Traceability</div>
+                <div class="comparison-bar-container">
+                    <div class="comparison-bar-fill traditional" style="width: 40%;">Limited</div>
+                </div>
+                <div class="comparison-bar-container">
+                    <div class="comparison-bar-fill blockchain" style="width: 100%;">100%</div>
+                </div>
+            </div>
+            <div class="comparison-row">
+                <div class="comparison-label">Trust Level</div>
+                <div class="comparison-bar-container">
+                    <div class="comparison-bar-fill traditional" style="width: 50%;">Medium</div>
+                </div>
+                <div class="comparison-bar-container">
+                    <div class="comparison-bar-fill blockchain" style="width: 95%;">Very High</div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="display: flex; justify-content: center; gap: 40px; margin-top: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 20px; height: 20px; background: linear-gradient(to right, #e94560, #ff6b6b); border-radius: 4px;"></div>
+                <span style="color: #ccc;">Traditional System</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 20px; height: 20px; background: linear-gradient(to right, #00d9ff, #4ade80); border-radius: 4px;"></div>
+                <span style="color: #ccc;">Blockchain System</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 15C: Project Timeline -->
+    <div class="slide slide-content">
+        <h2>📅 Project Development Timeline</h2>
+        
+        <h3 style="text-align: center; margin-bottom: 30px;">20-Week Development Schedule</h3>
+        
+        <div class="timeline-chart">
+            <div class="timeline-row">
+                <div class="timeline-label">Analysis & Design</div>
+                <div class="timeline-bar-container">
+                    <div class="timeline-bar-fill" style="left: 0%; width: 20%; background: linear-gradient(to right, #e94560, #ff6b6b);">Weeks 1-4</div>
+                </div>
+            </div>
+            <div class="timeline-row">
+                <div class="timeline-label">Smart Contracts</div>
+                <div class="timeline-bar-container">
+                    <div class="timeline-bar-fill" style="left: 20%; width: 30%; background: linear-gradient(to right, #00d9ff, #0ea5e9);">Weeks 5-10</div>
+                </div>
+            </div>
+            <div class="timeline-row">
+                <div class="timeline-label">Frontend dApp</div>
+                <div class="timeline-bar-container">
+                    <div class="timeline-bar-fill" style="left: 35%; width: 30%; background: linear-gradient(to right, #4ade80, #22c55e);">Weeks 8-13</div>
+                </div>
+            </div>
+            <div class="timeline-row">
+                <div class="timeline-label">Testing & UAT</div>
+                <div class="timeline-bar-container">
+                    <div class="timeline-bar-fill" style="left: 65%; width: 20%; background: linear-gradient(to right, #fbbf24, #f59e0b);">Weeks 14-17</div>
+                </div>
+            </div>
+            <div class="timeline-row">
+                <div class="timeline-label">Documentation</div>
+                <div class="timeline-bar-container">
+                    <div class="timeline-bar-fill" style="left: 85%; width: 15%; background: linear-gradient(to right, #a855f7, #9333ea);">Weeks 18-20</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stats-grid" style="margin-top: 30px;">
+            <div class="stat-box" style="padding: 20px;">
+                <span class="stat-number" style="font-size: 2.5rem;">5</span>
+                <span class="stat-label">Smart Contracts</span>
+            </div>
+            <div class="stat-box" style="padding: 20px;">
+                <span class="stat-number" style="font-size: 2.5rem;">20+</span>
+                <span class="stat-label">UI Components</span>
+            </div>
+            <div class="stat-box" style="padding: 20px;">
+                <span class="stat-number" style="font-size: 2.5rem;">90%+</span>
+                <span class="stat-label">Test Coverage</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 16: Transaction Costs -->
+    <div class="slide slide-content">
+        <h2>💸 Blockchain Transaction Costs</h2>
+        
+        <h3 style="text-align: center; margin-bottom: 30px;">Why Polygon Network?</h3>
+        
+        <table>
+            <tr>
+                <th>Operation</th>
+                <th>Gas Units</th>
+                <th>Cost (MATIC)</th>
+                <th>Cost (USD)</th>
+            </tr>
+            <tr>
+                <td>Register Cylinder</td>
+                <td>~150,000</td>
+                <td>0.015</td>
+                <td>~$0.02</td>
+            </tr>
+            <tr>
+                <td>Create Voucher</td>
+                <td>~200,000</td>
+                <td>0.020</td>
+                <td>~$0.03</td>
+            </tr>
+            <tr>
+                <td>Redeem Voucher</td>
+                <td>~180,000</td>
+                <td>0.018</td>
+                <td>~$0.02</td>
+            </tr>
+            <tr>
+                <td>Verify Voucher</td>
+                <td>0 (read)</td>
+                <td>Free</td>
+                <td>Free</td>
+            </tr>
+        </table>
+        
+        <div class="highlight-box">
+            <p><strong>Monthly cost for 1,000 vouchers:</strong> Approximately $50 USD — significantly cheaper than maintaining traditional centralized infrastructure with equivalent security.</p>
+        </div>
+    </div>
+
+    <!-- SLIDE 17: Conclusion -->
+    <div class="slide slide-content">
+        <h2>🎯 Conclusion</h2>
+        
+        <div class="highlight-box">
+            <h3>Key Takeaways</h3>
+            <ul>
+                <li>Blockchain provides <strong>immutable, transparent, and secure</strong> record-keeping</li>
+                <li>NFT-based vouchers <strong>eliminate fraud</strong> and disputes</li>
+                <li>Integrated <strong>payments (RWF)</strong> and <strong>SMS/Email notifications</strong> enhance user experience</li>
+                <li>Low-cost Polygon transactions make the system <strong>economically viable</strong></li>
+                <li>Addresses a <strong>real problem</strong> affecting 450,000+ LPG households in Rwanda</li>
+            </ul>
+        </div>
+        
+        <div style="text-align: center; margin-top: 50px;">
+            <h3 style="color: #00d9ff; font-size: 2rem;">This project contributes to Rwanda's digital transformation vision while solving a genuine citizen challenge.</h3>
+        </div>
+    </div>
+
+    <!-- SLIDE 18: References -->
+    <div class="slide slide-content">
+        <h2>📚 Official Data Sources & References</h2>
+        
+        <div class="two-column">
+            <div class="column">
+                <h3>Government Sources</h3>
+                <ul>
+                    <li><strong>MININFRA</strong> - Energy Sector Strategic Plan 2018/19-2023/24<br><small style="color:#888;">mininfra.gov.rw</small></li>
+                    <li><strong>RURA</strong> - Rwanda Utilities Regulatory Authority<br><small style="color:#888;">rura.rw</small></li>
+                    <li><strong>NISR</strong> - Integrated Household Living Conditions Survey (EICV5)<br><small style="color:#888;">statistics.gov.rw</small></li>
+                </ul>
+            </div>
+            <div class="column">
+                <h3>International Sources</h3>
+                <ul>
+                    <li><strong>World Bank</strong> - Rwanda Beyond Connections Energy Access Report (2018)<br><small style="color:#888;">documents.worldbank.org</small></li>
+                    <li><strong>Global LPG Partnership</strong> - Rwanda National LPG Master Plan (2021)<br><small style="color:#888;">glpgp.org</small></li>
+                    <li><strong>MECS</strong> - Rwanda eCooking Market Assessment (2022)<br><small style="color:#888;">mecs.org.uk</small></li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="highlight-box" style="margin-top: 30px;">
+            <h3>Key Statistics Referenced</h3>
+            <p>Population: ~14M (NISR) | Households: ~3M | LPG Users: 5-6% urban (EICV5) | Growth Target: 24x by 2024 (MININFRA) | Urban Charcoal: 65% (EICV5)</p>
+        </div>
+    </div>
+
+    <!-- SLIDE 19: Thank You -->
+    <div class="slide slide-title" style="text-align: center;">
+        <div class="logo">🙏</div>
+        <h1>Thank You!</h1>
+        <!-- <p class="subtitle">Questions & Discussion</p> -->
+        
+        <div class="author-info" style="display: inline-block; text-align: left; margin-top: 50px;">
+            <h3 style="color: #00d9ff; margin-bottom: 20px;">Project Repository</h3>
+            <p><strong>Smart Contracts:</strong> 5 Solidity contracts deployed on Polygon</p>
+            <p><strong>Frontend:</strong> Next.js dApp with MetaMask integration</p>
+            <p><strong>Features:</strong> QR codes, payments, SMS/Email notifications</p>
+        </div>
+    </div>
+
+</body>
+</html>
