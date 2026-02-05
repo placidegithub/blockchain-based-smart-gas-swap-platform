@@ -41,14 +41,7 @@ export function RoleRedirect({ children }: RoleRedirectProps) {
       const defaultPath = roleDefaultPaths[primaryRole] || '/dashboard';
       router.replace(defaultPath);
     }
-
-    // Auto-redirect from /dashboard to role-specific dashboard on first load
-    if (pathname === '/dashboard' && primaryRole !== 'customer') {
-      const defaultPath = roleDefaultPaths[primaryRole];
-      if (defaultPath) {
-        router.replace(defaultPath);
-      }
-    }
+    // Note: Staff and admin can access /dashboard to view customer perspective
   }, [isConnected, isLoading, primaryRole, pathname, router]);
 
   return <>{children}</>;

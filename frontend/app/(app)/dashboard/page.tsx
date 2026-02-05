@@ -1,10 +1,12 @@
 'use client';
 
-import { Wallet, Ticket, HelpCircle, History, CheckCircle2 } from 'lucide-react';
+import { Wallet, Ticket, HelpCircle, History, CheckCircle2, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { VoucherListByIds } from '@/components/vouchers';
 import { useWallet } from '@/lib/hooks/use-wallet';
 import { useActiveVouchers, useCustomerVouchers } from '@/lib/hooks/use-vouchers';
+import { useRecentVouchers } from '@/lib/hooks/use-recent-vouchers';
+import { usePrimaryRole } from '@/lib/hooks/use-roles';
 import { shortenAddress } from '@/lib/utils';
 
 const quickGuide = [
@@ -27,8 +29,13 @@ const quickGuide = [
 
 export default function DashboardPage() {
   const { address, isConnected } = useWallet();
+  const { primaryRole } = usePrimaryRole();
   const { activeVoucherIds, isLoading } = useActiveVouchers(address);
   const { voucherIds: allVoucherIds, isLoading: isLoadingAll } = useCustomerVouchers(address);
+  
+  // For staff/admin, get all platform vouchers
+  const { voucherIds: platformVoucherIds, isLoading: isLoadingPlatform } = useRecentVouchers(20);
+  const isStaffOrAdmin = primaryRole === 'staff' || primaryRole === 'admin';
   
   // Get redeemed/completed vouchers (all vouchers minus active ones)
   const completedVoucherIds = allVoucherIds.filter(
@@ -61,114 +68,167 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Ticket className="h-5 w-5 text-cyan-400" />
-            Active Vouchers
-          </h2>
-          {activeVoucherIds.length > 0 && (
-            <span className="text-sm text-slate-400">
-              {activeVoucherIds.length} voucher{activeVoucherIds.length !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-
-        {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} variant="default" className="animate-pulse">
-                <CardContent className="py-6">
-                  <div className="h-4 w-24 bg-slate-700 rounded mb-4" />
-                  <div className="h-8 w-32 bg-slate-700 rounded mb-2" />
-                  <div className="h-4 w-full bg-slate-700 rounded" />
-                </CardContent>
-              </Card>
-            ))}
+      {/* Platform Vouchers Section - Only for Staff/Admin */}
+      {isStaffOrAdmin && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Users className="h-5 w-5 text-cyan-400" />
+              All Platform Vouchers
+            </h2>
+            {platformVoucherIds.length > 0 && (
+              <span className="text-sm text-slate-400">
+                {platformVoucherIds.length} voucher{platformVoucherIds.length !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
-        ) : activeVoucherIds.length > 0 ? (
-          <VoucherListByIds voucherIds={activeVoucherIds} />
-        ) : (
-          <Card variant="default">
-            <CardContent className="py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
-                <Ticket className="h-8 w-8 text-slate-500" />
-              </div>
-              <h3 className="text-lg font-medium text-white mb-2">No Active Vouchers</h3>
-              <p className="text-slate-400 text-sm max-w-sm mx-auto">
-                You don&apos;t have any active vouchers. Visit a branch to deposit a cylinder and receive a voucher.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-      </section>
 
-      {/* Transaction History - Completed/Redeemed Vouchers */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <History className="h-5 w-5 text-cyan-400" />
-            Transaction History
-          </h2>
-          {completedVoucherIds.length > 0 && (
-            <span className="text-sm text-slate-400">
-              {completedVoucherIds.length} completed transaction{completedVoucherIds.length !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-
-        {isLoadingAll ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2].map((i) => (
-              <Card key={i} variant="default" className="animate-pulse">
-                <CardContent className="py-6">
-                  <div className="h-4 w-24 bg-slate-700 rounded mb-4" />
-                  <div className="h-8 w-32 bg-slate-700 rounded mb-2" />
-                  <div className="h-4 w-full bg-slate-700 rounded" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : completedVoucherIds.length > 0 ? (
-          <VoucherListByIds voucherIds={completedVoucherIds} />
-        ) : (
-          <Card variant="default">
-            <CardContent className="py-8 text-center">
-              <div className="w-12 h-12 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-3">
-                <CheckCircle2 className="h-6 w-6 text-slate-500" />
-              </div>
-              <h3 className="text-md font-medium text-white mb-1">No Completed Transactions</h3>
-              <p className="text-slate-400 text-sm max-w-sm mx-auto">
-                Your completed voucher redemptions will appear here.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-      </section>
-
-      <section>
-        <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
-          <HelpCircle className="h-5 w-5 text-cyan-400" />
-          Quick Guide
-        </h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          {quickGuide.map((item) => (
-            <Card key={item.step} variant="default">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xs font-bold">
-                    {item.step}
-                  </span>
-                  {item.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-400">{item.description}</p>
+          {isLoadingPlatform ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} variant="default" className="animate-pulse">
+                  <CardContent className="py-6">
+                    <div className="h-4 w-24 bg-slate-700 rounded mb-4" />
+                    <div className="h-8 w-32 bg-slate-700 rounded mb-2" />
+                    <div className="h-4 w-full bg-slate-700 rounded" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : platformVoucherIds.length > 0 ? (
+            <VoucherListByIds voucherIds={platformVoucherIds} />
+          ) : (
+            <Card variant="default">
+              <CardContent className="py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
+                  <Ticket className="h-8 w-8 text-slate-500" />
+                </div>
+                <h3 className="text-lg font-medium text-white mb-2">No Platform Vouchers</h3>
+                <p className="text-slate-400 text-sm max-w-sm mx-auto">
+                  No vouchers have been created on the platform yet.
+                </p>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      </section>
+          )}
+        </section>
+      )}
+
+      {/* Personal Active Vouchers Section - Only for customers */}
+      {!isStaffOrAdmin && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Ticket className="h-5 w-5 text-cyan-400" />
+              Active Vouchers
+            </h2>
+            {activeVoucherIds.length > 0 && (
+              <span className="text-sm text-slate-400">
+                {activeVoucherIds.length} voucher{activeVoucherIds.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} variant="default" className="animate-pulse">
+                  <CardContent className="py-6">
+                    <div className="h-4 w-24 bg-slate-700 rounded mb-4" />
+                    <div className="h-8 w-32 bg-slate-700 rounded mb-2" />
+                    <div className="h-4 w-full bg-slate-700 rounded" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : activeVoucherIds.length > 0 ? (
+            <VoucherListByIds voucherIds={activeVoucherIds} />
+          ) : (
+            <Card variant="default">
+              <CardContent className="py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
+                  <Ticket className="h-8 w-8 text-slate-500" />
+                </div>
+                <h3 className="text-lg font-medium text-white mb-2">No Active Vouchers</h3>
+                <p className="text-slate-400 text-sm max-w-sm mx-auto">
+                  You don&apos;t have any active vouchers. Visit a branch to deposit a cylinder and receive a voucher.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </section>
+      )}
+
+      {/* Transaction History - Only for customers */}
+      {!isStaffOrAdmin && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <History className="h-5 w-5 text-cyan-400" />
+              Transaction History
+            </h2>
+            {completedVoucherIds.length > 0 && (
+              <span className="text-sm text-slate-400">
+                {completedVoucherIds.length} completed transaction{completedVoucherIds.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {isLoadingAll ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2].map((i) => (
+                <Card key={i} variant="default" className="animate-pulse">
+                  <CardContent className="py-6">
+                    <div className="h-4 w-24 bg-slate-700 rounded mb-4" />
+                    <div className="h-8 w-32 bg-slate-700 rounded mb-2" />
+                    <div className="h-4 w-full bg-slate-700 rounded" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : completedVoucherIds.length > 0 ? (
+            <VoucherListByIds voucherIds={completedVoucherIds} />
+          ) : (
+            <Card variant="default">
+              <CardContent className="py-8 text-center">
+                <div className="w-12 h-12 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle2 className="h-6 w-6 text-slate-500" />
+                </div>
+                <h3 className="text-md font-medium text-white mb-1">No Completed Transactions</h3>
+                <p className="text-slate-400 text-sm max-w-sm mx-auto">
+                  Your completed voucher redemptions will appear here.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </section>
+      )}
+
+      {/* Quick Guide - Only for customers */}
+      {!isStaffOrAdmin && (
+        <section>
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+            <HelpCircle className="h-5 w-5 text-cyan-400" />
+            Quick Guide
+          </h2>
+          <div className="grid gap-4 md:grid-cols-3">
+            {quickGuide.map((item) => (
+              <Card key={item.step} variant="default">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xs font-bold">
+                      {item.step}
+                    </span>
+                    {item.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-slate-400">{item.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

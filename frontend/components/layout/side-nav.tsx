@@ -59,7 +59,7 @@ export function SideNav({
   // Dynamic dashboard link based on role
   const getDashboardHref = () => {
     if (primaryRole === 'admin') return '/admin';
-    if (primaryRole === 'staff') return '/staff';
+    // Staff can view customer dashboard via /dashboard
     return '/dashboard';
   };
 

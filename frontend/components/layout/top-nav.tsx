@@ -19,8 +19,8 @@ export function TopNav({ onMenuClick, showMenuButton = true }: TopNavProps) {
 
   // Each role sees only their relevant links - strict separation
   const navLinks = [
-    { href: primaryRole === 'admin' ? '/admin' : primaryRole === 'staff' ? '/staff' : '/dashboard', label: 'Dashboard', show: true },
-    { href: '/staff', label: 'Staff Tools', show: primaryRole === 'staff' },
+    { href: primaryRole === 'admin' ? '/admin' : '/dashboard', label: 'Dashboard', show: true },
+    { href: '/staff', label: 'Staff Dashboard', show: primaryRole === 'staff' },
     { href: '/admin', label: 'Admin Panel', show: primaryRole === 'admin' },
   ];
 

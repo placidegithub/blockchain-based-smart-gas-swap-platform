@@ -41,7 +41,7 @@ export function MobileNav() {
   // Dynamic home link based on role
   const getHomeHref = () => {
     if (primaryRole === 'admin') return '/admin';
-    if (primaryRole === 'staff') return '/staff';
+    // Staff can view customer dashboard via /dashboard
     return '/dashboard';
   };
 
