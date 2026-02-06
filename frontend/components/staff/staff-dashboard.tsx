@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { usePlatformStatsFormatted, useRoles, useCompanies, useBranches, useBranch, useRecentVouchers, useBranchStats, useCurrentStaffInfo } from '@/lib/hooks';
+import { usePlatformStatsFormatted, useRoles, useCompanies, useBranches, useBranch, useRecentVouchers, useBranchStats, useCurrentStaffInfo, useCompanyInfo } from '@/lib/hooks';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -40,11 +40,24 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
   const { isBranchStaff, isPlatformAdmin, isLoading: isLoadingRoles } = useRoles();
   const { companyIds } = useCompanies();
   const { branchIds } = useBranches(selectedCompanyId);
-  const { transactions, isLoading: isLoadingTransactions, VoucherMappers } = useRecentVouchers(10);
+  const { transactions, isLoading: isLoadingTransactions, VoucherMappers } = useRecentVouchers(50);
   const { deposits: branchDeposits, redemptions: branchRedemptions } = useBranchStats(selectedBranchId);
-  const { branch: staffBranch, company: staffCompany, isLoading: isLoadingStaffInfo, isStaffAssigned } = useCurrentStaffInfo();
+  const { branch: staffBranch, company: staffCompany, companyId: staffCompanyId, isLoading: isLoadingStaffInfo, isStaffAssigned } = useCurrentStaffInfo();
+  const { companyInfo, isLoading: isLoadingCompanyInfo } = useCompanyInfo(staffCompanyId);
+
+  useEffect(() => {
+    if (isStaffAssigned && !isPlatformAdmin && staffBranch && staffCompany) {
+      if (!selectedCompanyId && staffCompany.id > 0n) {
+        setSelectedCompanyId(staffCompany.id);
+      }
+      if (!selectedBranchId && staffBranch.id > 0n) {
+        setSelectedBranchId(staffBranch.id);
+      }
+    }
+  }, [isStaffAssigned, isPlatformAdmin, staffBranch, staffCompany, selectedCompanyId, selectedBranchId]);
 
   const isAuthorized = isBranchStaff || isPlatformAdmin;
+  const isStaffView = !isPlatformAdmin && isStaffAssigned;
   
   const dashboardTitle = isStaffAssigned && staffCompany && staffBranch
     ? `${staffCompany.code} ${staffBranch.name}`
@@ -116,7 +129,11 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
     return 'unpaid';
   }, [paymentStatusCache]);
   
-  const recentTransactions: Transaction[] = transactions.map((tx) => ({
+  const filteredTransactions = !isPlatformAdmin && isStaffAssigned && staffCompany
+    ? transactions.filter((tx) => tx.companyName === staffCompany.name)
+    : transactions;
+
+  const recentTransactions: Transaction[] = filteredTransactions.map((tx) => ({
     voucherId: tx.voucherId,
     type: tx.type,
     customerAddress: tx.customerAddress,
@@ -253,17 +270,22 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
           </Button>
         </div>
         <TransactionHistory
-          title="All Transactions"
-          description="Complete transaction history with payment management"
-          limit={20}
+          title={isStaffView ? `${staffCompany?.name} Transactions` : "All Transactions"}
+          description={isStaffView ? "Your company transaction history" : "Complete transaction history with payment management"}
+          limit={50}
           showPaymentActions={true}
+          companyFilter={isStaffView ? staffCompany?.name : undefined}
         />
       </div>
     );
   }
 
-  const totalDeposits = selectedBranchId ? Number(branchDeposits) : (stats?.totalVouchers ?? 0);
-  const totalRedemptions = selectedBranchId ? Number(branchRedemptions) : (stats?.completedSwaps ?? 0);
+  const totalDeposits = isStaffView
+    ? (selectedBranchId ? Number(branchDeposits) : Number(companyInfo?.totalDeposits ?? 0))
+    : (selectedBranchId ? Number(branchDeposits) : (stats?.totalVouchers ?? 0));
+  const totalRedemptions = isStaffView
+    ? (selectedBranchId ? Number(branchRedemptions) : Number(companyInfo?.totalRedemptions ?? 0))
+    : (selectedBranchId ? Number(branchRedemptions) : (stats?.completedSwaps ?? 0));
 
   return (
     <div className={cn('w-full space-y-6', className)}>
@@ -276,41 +298,49 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
               : 'Manage gas cylinder swaps'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-muted-foreground">Branch:</label>
-          <select
-            className="h-9 px-3 rounded-lg bg-input border border-border text-foreground text-sm focus:border-cyan-500"
-            value={selectedCompanyId?.toString() ?? ''}
-            onChange={(e) => {
-              setSelectedCompanyId(e.target.value ? BigInt(e.target.value) : undefined);
-              setSelectedBranchId(undefined);
-            }}
-          >
-            <option value="">Select Company</option>
-            {companyIds.map((id) => (
-              <option key={id.toString()} value={id.toString()}>
-                Company {id.toString()}
-              </option>
-            ))}
-          </select>
-          {selectedCompanyId && (
+        {isPlatformAdmin ? (
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-muted-foreground">Branch:</label>
             <select
               className="h-9 px-3 rounded-lg bg-input border border-border text-foreground text-sm focus:border-cyan-500"
-              value={selectedBranchId?.toString() ?? ''}
-              onChange={(e) => setSelectedBranchId(e.target.value ? BigInt(e.target.value) : undefined)}
+              value={selectedCompanyId?.toString() ?? ''}
+              onChange={(e) => {
+                setSelectedCompanyId(e.target.value ? BigInt(e.target.value) : undefined);
+                setSelectedBranchId(undefined);
+              }}
             >
-              <option value="">Select Branch</option>
-              {branchIds.map((id) => (
-                <BranchOption key={id.toString()} branchId={id} />
+              <option value="">Select Company</option>
+              {companyIds.map((id) => (
+                <option key={id.toString()} value={id.toString()}>
+                  Company {id.toString()}
+                </option>
               ))}
             </select>
-          )}
-        </div>
+            {selectedCompanyId && (
+              <select
+                className="h-9 px-3 rounded-lg bg-input border border-border text-foreground text-sm focus:border-cyan-500"
+                value={selectedBranchId?.toString() ?? ''}
+                onChange={(e) => setSelectedBranchId(e.target.value ? BigInt(e.target.value) : undefined)}
+              >
+                <option value="">Select Branch</option>
+                {branchIds.map((id) => (
+                  <BranchOption key={id.toString()} branchId={id} />
+                ))}
+              </select>
+            )}
+          </div>
+        ) : isStaffAssigned ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+              {staffCompany?.name || 'Company'} — {staffBranch?.name || 'Branch'}
+            </span>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title={selectedBranchId ? "Branch Deposits" : "Total Deposits"}
+          title={isStaffView ? "Company Deposits" : (selectedBranchId ? "Branch Deposits" : "Total Deposits")}
           value={isLoadingStats ? '-' : totalDeposits}
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -320,7 +350,7 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
           color="cyan"
         />
         <StatCard
-          title={selectedBranchId ? "Branch Redemptions" : "Total Redemptions"}
+          title={isStaffView ? "Company Redemptions" : (selectedBranchId ? "Branch Redemptions" : "Total Redemptions")}
           value={isLoadingStats ? '-' : totalRedemptions}
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -330,8 +360,8 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
           color="purple"
         />
         <StatCard
-          title="Total Vouchers"
-          value={isLoadingStats ? '-' : stats?.totalVouchers ?? 0}
+          title={isStaffView ? "Company Vouchers" : "Total Vouchers"}
+          value={isLoadingStats ? '-' : (isStaffView ? Number(companyInfo?.totalDeposits ?? 0) : (stats?.totalVouchers ?? 0))}
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
@@ -340,8 +370,8 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
           color="blue"
         />
         <StatCard
-          title="Completed Swaps"
-          value={isLoadingStats ? '-' : stats?.completedSwaps ?? 0}
+          title={isStaffView ? "Company Swaps" : "Completed Swaps"}
+          value={isLoadingStats ? '-' : (isStaffView ? Number(companyInfo?.totalRedemptions ?? 0) : (stats?.completedSwaps ?? 0))}
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />

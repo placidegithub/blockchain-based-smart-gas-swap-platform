@@ -151,7 +151,7 @@ export function getVoucherPaymentStatus(voucherId: string): VoucherPaymentData |
   return null;
 }
 
-export function markVoucherAsPaid(voucherId: string, transactionRef: string, method: 'cash' | 'momo', amount?: number, customerPhone?: string): boolean {
+export function markVoucherAsPaid(voucherId: string, transactionRef: string, method: 'cash' | 'momo', amount?: number, customerPhone?: string, walletAddress?: string): boolean {
   console.log('[markVoucherAsPaid] Called with:', { voucherId, transactionRef, method, amount, customerPhone });
   
   // Check if already in fund storage (most reliable check for duplicate prevention)
@@ -174,7 +174,7 @@ export function markVoucherAsPaid(voucherId: string, transactionRef: string, met
         method: fundMethod,
         customerPhone,
         transactionRef: existingStatus.transactionRef || transactionRef,
-      });
+      }, walletAddress);
       console.log('[markVoucherAsPaid] Sync addPaymentRecord result:', result);
     }
     return true;
@@ -199,7 +199,7 @@ export function markVoucherAsPaid(voucherId: string, transactionRef: string, met
       method: fundMethod,
       customerPhone,
       transactionRef,
-    });
+    }, walletAddress);
     console.log('[markVoucherAsPaid] addPaymentRecord result:', result);
   } else {
     console.warn('[markVoucherAsPaid] Amount is 0 or undefined, not adding to fund tracker');

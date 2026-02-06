@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useCompleteSwap, useVerifyVoucher, useCompany, useBranch, useCylinderTypes, useAvailableCylindersAtBranch, useCylinderBySerial } from '@/lib/hooks';
+import { useCompleteSwap, useVerifyVoucher, useCompany, useBranch, useCylinderTypes, useAvailableCylindersAtBranch, useCylinderBySerial, useCurrentStaffInfo } from '@/lib/hooks';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -26,6 +26,7 @@ export function CompleteSwapForm({ initialVoucherId, voucherId, onSuccess, onCan
 
   const { verification, isLoading: isVerifying, error: verifyError, refetch: refetchVerification } = useVerifyVoucher(voucherIdToVerify);
   const { completeSwap, isPending, isSuccess, isError, error, txHash, reset, isAuthorized, isLoadingRoles } = useCompleteSwap();
+  const { branchId: staffBranchId, branch: staffBranch, isStaffAssigned } = useCurrentStaffInfo();
 
   useEffect(() => {
     const id = voucherId ?? initialVoucherId;
@@ -33,6 +34,12 @@ export function CompleteSwapForm({ initialVoucherId, voucherId, onSuccess, onCan
       setVoucherIdInput(id);
     }
   }, [initialVoucherId, voucherId]);
+
+  useEffect(() => {
+    if (isStaffAssigned && staffBranchId && !branchIdInput) {
+      setBranchIdInput(staffBranchId.toString());
+    }
+  }, [isStaffAssigned, staffBranchId, branchIdInput]);
 
   useEffect(() => {
     if (verification) {
@@ -227,15 +234,21 @@ export function CompleteSwapForm({ initialVoucherId, voucherId, onSuccess, onCan
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Branch ID (Redemption Location)</label>
-                <Input
-                  variant="glow"
-                  placeholder="Enter your branch ID"
-                  value={branchIdInput}
-                  onChange={(e) => setBranchIdInput(e.target.value)}
-                  error={formErrors.branchId}
-                  disabled={isPending}
-                />
+                <label className="text-sm font-medium text-foreground">Branch (Redemption Location)</label>
+                {isStaffAssigned && staffBranch ? (
+                  <div className="flex w-full h-10 px-4 py-2 rounded-lg bg-input border border-cyan-500/30 text-foreground items-center">
+                    <span>{staffBranch.name} (ID: {staffBranchId?.toString()})</span>
+                  </div>
+                ) : (
+                  <Input
+                    variant="glow"
+                    placeholder="Enter your branch ID"
+                    value={branchIdInput}
+                    onChange={(e) => setBranchIdInput(e.target.value)}
+                    error={formErrors.branchId}
+                    disabled={isPending}
+                  />
+                )}
               </div>
             </>
           )}

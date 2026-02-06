@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useInitiateSwap, useCompanies, useCompany, useBranches, useBranch, useCylinderTypes, useAvailableCylindersAtBranch } from '@/lib/hooks';
+import { useInitiateSwap, useCompanies, useCompany, useBranches, useBranch, useCylinderTypes, useAvailableCylindersAtBranch, useCurrentStaffInfo, useRoles } from '@/lib/hooks';
 import { useWallet } from '@/lib/hooks/use-wallet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -117,6 +117,8 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
   const { initiateSwap, isPending, isSuccess, isError, error, txHash, voucherId: createdVoucherIdFromChain, reset, isAuthorized, isLoadingRoles } = useInitiateSwap();
   const { company: selectedCompanyData } = useCompany(selectedCompanyId);
   const { branch: selectedBranchData } = useBranch(selectedBranchId);
+  const { companyId: staffCompanyId, branchId: staffBranchId, company: staffCompany, branch: staffBranch, isStaffAssigned } = useCurrentStaffInfo();
+  const { isPlatformAdmin } = useRoles();
 
   useEffect(() => {
     if (selectedCompanyId === undefined) {
@@ -129,6 +131,17 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
       setCylinderSerial('');
     }
   }, [selectedBranchId]);
+
+  useEffect(() => {
+    if (isStaffAssigned && !isPlatformAdmin) {
+      if (staffCompanyId && !selectedCompanyId) {
+        setSelectedCompanyId(staffCompanyId);
+      }
+      if (staffBranchId && !selectedBranchId) {
+        setSelectedBranchId(staffBranchId);
+      }
+    }
+  }, [isStaffAssigned, isPlatformAdmin, staffCompanyId, staffBranchId, selectedCompanyId, selectedBranchId]);
 
   const handleCylinderSerialChange = (serial: string) => {
     setCylinderSerial(serial);
@@ -596,33 +609,45 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Company</label>
-            <select
-              className="flex w-full h-10 px-4 py-2 rounded-lg bg-input border border-cyan-500/30 text-foreground focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-50"
-              value={selectedCompanyId?.toString() ?? ''}
-              onChange={(e) => setSelectedCompanyId(e.target.value ? BigInt(e.target.value) : undefined)}
-              disabled={isPending || isLoadingCompanies}
-            >
-              <option value="">Select a company</option>
-              {companyIds.map((id) => (
-                <CompanyOption key={id.toString()} companyId={id} />
-              ))}
-            </select>
-            {formErrors.company && <p className="text-xs text-red-500">{formErrors.company}</p>}
-          </div>
+              {isStaffAssigned && !isPlatformAdmin ? (
+                <div className="flex w-full h-10 px-4 py-2 rounded-lg bg-input border border-cyan-500/30 text-foreground items-center">
+                  <span>{staffCompany?.name || 'Your Company'} ({staffCompany?.code || '...'})</span>
+                </div>
+              ) : (
+                <select
+                  className="flex w-full h-10 px-4 py-2 rounded-lg bg-input border border-cyan-500/30 text-foreground focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-50"
+                  value={selectedCompanyId?.toString() ?? ''}
+                  onChange={(e) => setSelectedCompanyId(e.target.value ? BigInt(e.target.value) : undefined)}
+                  disabled={isPending || isLoadingCompanies}
+                >
+                  <option value="">Select a company</option>
+                  {companyIds.map((id) => (
+                    <CompanyOption key={id.toString()} companyId={id} />
+                  ))}
+                </select>
+              )}
+              {formErrors.company && <p className="text-xs text-red-500">{formErrors.company}</p>}
+            </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Branch</label>
-            <select
-              className="flex w-full h-10 px-4 py-2 rounded-lg bg-input border border-cyan-500/30 text-foreground focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-50"
-              value={selectedBranchId?.toString() ?? ''}
-              onChange={(e) => setSelectedBranchId(e.target.value ? BigInt(e.target.value) : undefined)}
-              disabled={isPending || !selectedCompanyId || isLoadingBranches}
-            >
-              <option value="">Select a branch</option>
-              {branchIds.map((id) => (
-                <BranchOption key={id.toString()} branchId={id} />
-              ))}
-            </select>
+            {isStaffAssigned && !isPlatformAdmin ? (
+              <div className="flex w-full h-10 px-4 py-2 rounded-lg bg-input border border-cyan-500/30 text-foreground items-center">
+                <span>{staffBranch?.name || 'Your Branch'}</span>
+              </div>
+            ) : (
+              <select
+                className="flex w-full h-10 px-4 py-2 rounded-lg bg-input border border-cyan-500/30 text-foreground focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-50"
+                value={selectedBranchId?.toString() ?? ''}
+                onChange={(e) => setSelectedBranchId(e.target.value ? BigInt(e.target.value) : undefined)}
+                disabled={isPending || !selectedCompanyId || isLoadingBranches}
+              >
+                <option value="">Select a branch</option>
+                {branchIds.map((id) => (
+                  <BranchOption key={id.toString()} branchId={id} />
+                ))}
+              </select>
+            )}
             {formErrors.branch && <p className="text-xs text-red-500">{formErrors.branch}</p>}
           </div>
 

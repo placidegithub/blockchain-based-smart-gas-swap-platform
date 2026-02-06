@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAccount } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,7 @@ export function PaymentForm({
   onSkip,
   className,
 }: PaymentFormProps) {
+  const { address } = useAccount();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('idle');
   const [transactionRef, setTransactionRef] = useState<string>('');
@@ -57,7 +59,7 @@ export function PaymentForm({
           setPaymentStatus('completed');
           clearInterval(intervalId);
           // Save to localStorage
-          markVoucherAsPaid(voucherId, transactionRef, 'momo', amount, customerPhone);
+          markVoucherAsPaid(voucherId, transactionRef, 'momo', amount, customerPhone, address);
           onPaymentComplete?.(transactionRef);
         } else if (result.status === 'failed' || result.status === 'cancelled') {
           setPaymentStatus('failed');
@@ -85,7 +87,7 @@ export function PaymentForm({
     setTransactionRef(ref);
     setPaymentStatus('completed');
     // Save to localStorage and fund tracker
-    const result = markVoucherAsPaid(voucherId, ref, 'cash', amount, customerPhone);
+    const result = markVoucherAsPaid(voucherId, ref, 'cash', amount, customerPhone, address);
     console.log('[handleCashPayment] markVoucherAsPaid result:', result);
     onPaymentComplete?.(ref);
   };

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAccount } from 'wagmi';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
@@ -20,30 +21,30 @@ interface FundTrackerProps {
 }
 
 export function FundTracker({ className }: FundTrackerProps) {
+  const { address } = useAccount();
   const [allTimeSummary, setAllTimeSummary] = useState<FundSummary | null>(null);
   const [todaySummary, setTodaySummary] = useState<FundSummary | null>(null);
   const [recentPayments, setRecentPayments] = useState<PaymentRecord[]>([]);
   const [viewMode, setViewMode] = useState<'today' | 'all'>('today');
 
   const refreshData = useCallback(() => {
-    setAllTimeSummary(getFundSummary());
-    setTodaySummary(getTodaysFundSummary());
-    setRecentPayments(getRecentPayments(10));
-  }, []);
+    setAllTimeSummary(getFundSummary(address));
+    setTodaySummary(getTodaysFundSummary(address));
+    setRecentPayments(getRecentPayments(10, address));
+  }, [address]);
 
   useEffect(() => {
-    // Refresh the display
     refreshData();
     
     const interval = setInterval(refreshData, 5000);
     
+    const storageKey = address ? `gasswap_collected_funds_${address.toLowerCase()}` : 'gasswap_collected_funds';
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'gasswap_collected_funds') {
+      if (e.key === storageKey) {
         refreshData();
       }
     };
     
-    // Listen for custom payment events for immediate updates
     const handlePaymentAdded = () => {
       refreshData();
     };
@@ -56,7 +57,7 @@ export function FundTracker({ className }: FundTrackerProps) {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('gasswap_payment_added', handlePaymentAdded);
     };
-  }, [refreshData]);
+  }, [refreshData, address]);
 
   const summary = viewMode === 'today' ? todaySummary : allTimeSummary;
 
@@ -72,7 +73,7 @@ export function FundTracker({ className }: FundTrackerProps) {
             <button
               onClick={() => {
                 if (confirm('Clear all fund records?')) {
-                  clearFundRecords();
+                  clearFundRecords(address);
                   refreshData();
                 }
               }}

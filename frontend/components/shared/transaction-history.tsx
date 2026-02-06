@@ -15,6 +15,7 @@ interface TransactionHistoryProps {
   description?: string;
   limit?: number;
   showPaymentActions?: boolean;
+  companyFilter?: string;
   className?: string;
 }
 
@@ -23,9 +24,13 @@ export function TransactionHistory({
   description = 'All voucher transactions',
   limit = 20,
   showPaymentActions = false,
+  companyFilter,
   className,
 }: TransactionHistoryProps) {
-  const { transactions, isLoading, VoucherMappers } = useRecentVouchers(limit);
+  const { transactions: allTransactions, isLoading, VoucherMappers } = useRecentVouchers(limit);
+  const transactions = companyFilter
+    ? allTransactions.filter((tx) => tx.companyName === companyFilter)
+    : allTransactions;
   const [paymentStatusCache, setPaymentStatusCache] = useState<Map<string, 'unpaid' | 'paid' | 'cancelled'>>(new Map());
   const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
   const [paymentModal, setPaymentModal] = useState<{

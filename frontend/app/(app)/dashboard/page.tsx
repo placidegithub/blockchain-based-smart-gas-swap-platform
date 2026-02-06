@@ -7,6 +7,7 @@ import { useWallet } from '@/lib/hooks/use-wallet';
 import { useActiveVouchers, useCustomerVouchers } from '@/lib/hooks/use-vouchers';
 import { useRecentVouchers } from '@/lib/hooks/use-recent-vouchers';
 import { usePrimaryRole } from '@/lib/hooks/use-roles';
+import { useCurrentStaffInfo } from '@/lib/hooks/use-companies';
 import { shortenAddress } from '@/lib/utils';
 
 const quickGuide = [
@@ -32,10 +33,20 @@ export default function DashboardPage() {
   const { primaryRole } = usePrimaryRole();
   const { activeVoucherIds, isLoading } = useActiveVouchers(address);
   const { voucherIds: allVoucherIds, isLoading: isLoadingAll } = useCustomerVouchers(address);
+  const { company: staffCompany, isStaffAssigned } = useCurrentStaffInfo();
   
   // For staff/admin, get all platform vouchers
-  const { voucherIds: platformVoucherIds, isLoading: isLoadingPlatform } = useRecentVouchers(20);
+  const { transactions: platformTransactions, voucherIds: platformVoucherIds, isLoading: isLoadingPlatform } = useRecentVouchers(50);
   const isStaffOrAdmin = primaryRole === 'staff' || primaryRole === 'admin';
+  const isStaffOnly = primaryRole === 'staff' && isStaffAssigned;
+  
+  // Filter platform vouchers by company for non-admin staff
+  const filteredPlatformVoucherIds = isStaffOnly && staffCompany
+    ? platformVoucherIds.filter((id) => {
+        const tx = platformTransactions.find((t) => t.voucherId === id);
+        return tx?.companyName === staffCompany.name;
+      })
+    : platformVoucherIds;
   
   // Get redeemed/completed vouchers (all vouchers minus active ones)
   const completedVoucherIds = allVoucherIds.filter(
@@ -74,11 +85,11 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
               <Users className="h-5 w-5 text-cyan-400" />
-              All Platform Vouchers
+              {isStaffOnly ? `${staffCompany?.name} Vouchers` : 'All Platform Vouchers'}
             </h2>
-            {platformVoucherIds.length > 0 && (
+            {filteredPlatformVoucherIds.length > 0 && (
               <span className="text-sm text-slate-400">
-                {platformVoucherIds.length} voucher{platformVoucherIds.length !== 1 ? 's' : ''}
+                {filteredPlatformVoucherIds.length} voucher{filteredPlatformVoucherIds.length !== 1 ? 's' : ''}
               </span>
             )}
           </div>
@@ -95,8 +106,8 @@ export default function DashboardPage() {
                 </Card>
               ))}
             </div>
-          ) : platformVoucherIds.length > 0 ? (
-            <VoucherListByIds voucherIds={platformVoucherIds} />
+          ) : filteredPlatformVoucherIds.length > 0 ? (
+            <VoucherListByIds voucherIds={filteredPlatformVoucherIds} />
           ) : (
             <Card variant="default">
               <CardContent className="py-12 text-center">
