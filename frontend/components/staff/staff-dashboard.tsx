@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { usePlatformStatsFormatted, useRoles, useCompanies, useBranches, useBranch, useRecentVouchers, useBranchStats } from '@/lib/hooks';
+import { usePlatformStatsFormatted, useRoles, useCompanies, useBranches, useBranch, useRecentVouchers, useBranchStats, useCurrentStaffInfo } from '@/lib/hooks';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -42,8 +42,15 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
   const { branchIds } = useBranches(selectedCompanyId);
   const { transactions, isLoading: isLoadingTransactions, VoucherMappers } = useRecentVouchers(10);
   const { deposits: branchDeposits, redemptions: branchRedemptions } = useBranchStats(selectedBranchId);
+  const { branch: staffBranch, company: staffCompany, isLoading: isLoadingStaffInfo, isStaffAssigned } = useCurrentStaffInfo();
 
   const isAuthorized = isBranchStaff || isPlatformAdmin;
+  
+  const dashboardTitle = isStaffAssigned && staffCompany && staffBranch
+    ? `${staffCompany.code} ${staffBranch.name}`
+    : isPlatformAdmin
+    ? 'Admin Staff Dashboard'
+    : 'Staff Dashboard';
 
   // Load payment status from localStorage for all transactions
   useEffect(() => {
@@ -127,7 +134,7 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
     txHash: tx.txHash,
   }));
 
-  if (isLoadingRoles) {
+  if (isLoadingRoles || isLoadingStaffInfo) {
     return (
       <div className={cn('w-full', className)}>
         <div className="flex items-center justify-center py-12">
@@ -262,8 +269,12 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
     <div className={cn('w-full space-y-6', className)}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Staff Dashboard</h1>
-          <p className="text-muted-foreground">Manage gas cylinder swaps</p>
+          <h1 className="text-2xl font-bold text-foreground">{dashboardTitle}</h1>
+          <p className="text-muted-foreground">
+            {isStaffAssigned && staffBranch
+              ? `Branch Manager Dashboard - ${staffBranch.district || 'District'}`
+              : 'Manage gas cylinder swaps'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <label className="text-sm text-muted-foreground">Branch:</label>

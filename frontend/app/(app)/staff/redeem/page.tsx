@@ -161,11 +161,11 @@ export default function RedeemVoucherPage() {
   }, [availableCylinders, cylinderType]);
 
   const sourceDistrictName = useMemo(() => {
-    if (sourceBranch?.districtId !== undefined) {
-      return RWANDA_DISTRICTS[Number(sourceBranch.districtId)]?.name || `District ${sourceBranch.districtId}`;
+    if (sourceBranch?.district) {
+      return sourceBranch.district;
     }
     return '';
-  }, [sourceBranch?.districtId]);
+  }, [sourceBranch?.district]);
 
   const destinationDistrictName = selectedDistrictId
     ? RWANDA_DISTRICTS[Number(selectedDistrictId)]?.name || ''
@@ -293,13 +293,10 @@ export default function RedeemVoucherPage() {
     }
 
     // Validate that selected branch belongs to the selected district
-    if (selectedDistrictId && selectedBranchId && destinationBranch && destinationBranch.districtId !== undefined) {
-      const branchDistrictId = Number(destinationBranch.districtId);
-      const selectedDistrict = Number(selectedDistrictId);
-      if (!isNaN(branchDistrictId) && branchDistrictId !== selectedDistrict) {
-        const branchDistrictName = RWANDA_DISTRICTS[branchDistrictId]?.name || `District ${branchDistrictId}`;
-        const selectedDistrictName = RWANDA_DISTRICTS[selectedDistrict]?.name || `District ${selectedDistrict}`;
-        errors.branch = `Branch belongs to ${branchDistrictName}, but you selected ${selectedDistrictName}. Please select a branch from ${selectedDistrictName}.`;
+    if (selectedDistrictId && selectedBranchId && destinationBranch && destinationBranch.district) {
+      const selectedDistrictName = RWANDA_DISTRICTS[Number(selectedDistrictId)]?.name || '';
+      if (destinationBranch.district !== selectedDistrictName) {
+        errors.branch = `Branch belongs to ${destinationBranch.district}, but you selected ${selectedDistrictName}. Please select a branch from ${selectedDistrictName}.`;
       }
     }
 

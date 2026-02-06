@@ -1,8 +1,12 @@
 import { useCallback } from "react";
+import { useAccount } from "wagmi";
 import {
   useCompanyManagerRead,
   useCompanyManagerWrite,
   useGasSwapPlatformRead,
+  useGasSwapPlatformWrite,
+  useVoucherManagerWrite,
+  useCylinderRegistryWrite,
 } from "./use-contracts";
 import { useRoles } from "./use-roles";
 
@@ -18,7 +22,8 @@ export interface Branch {
   id: bigint;
   companyId: bigint;
   name: string;
-  districtId: bigint;
+  district: string;
+  location: string;
   isActive: boolean;
   createdAt: bigint;
 }
@@ -119,6 +124,44 @@ export function useBranch(branchId: bigint | undefined) {
     isLoading,
     error,
     refetch,
+  };
+}
+
+export function useCurrentStaffInfo() {
+  const { address, isConnected } = useAccount();
+  
+  const { data: staffBranchId, isLoading: isLoadingBranch } = useCompanyManagerRead(
+    "getStaffBranch",
+    [address],
+    isConnected && !!address
+  );
+
+  const { data: staffCompanyId, isLoading: isLoadingCompany } = useCompanyManagerRead(
+    "getStaffCompany",
+    [address],
+    isConnected && !!address
+  );
+
+  const branchId = staffBranchId as bigint | undefined;
+  const companyId = staffCompanyId as bigint | undefined;
+
+  const { branch, isLoading: isLoadingBranchData } = useBranch(
+    branchId && branchId > 0n ? branchId : undefined
+  );
+
+  const { company, isLoading: isLoadingCompanyData } = useCompany(
+    companyId && companyId > 0n ? companyId : undefined
+  );
+
+  const isLoading = isLoadingBranch || isLoadingCompany || isLoadingBranchData || isLoadingCompanyData;
+
+  return {
+    branchId: branchId && branchId > 0n ? branchId : undefined,
+    companyId: companyId && companyId > 0n ? companyId : undefined,
+    branch,
+    company,
+    isLoading,
+    isStaffAssigned: branchId !== undefined && branchId > 0n,
   };
 }
 
@@ -235,18 +278,136 @@ export function useAddBranch() {
     useCompanyManagerWrite();
 
   const addBranch = useCallback(
-    async (companyId: bigint, name: string, districtId: bigint) => {
+    async (companyId: bigint, name: string, district: string, location: string) => {
       if (!isPlatformAdmin) {
         throw new Error("Unauthorized: Must be platform admin");
       }
 
-      return writeAsync("addBranch", [companyId, name, districtId]);
+      return writeAsync("registerBranch", [companyId, name, district, location]);
     },
     [writeAsync, isPlatformAdmin]
   );
 
   return {
     addBranch,
+    isPending,
+    isSuccess,
+    isError,
+    error,
+    txHash: data,
+    reset,
+    isAuthorized: isPlatformAdmin,
+    isLoadingRoles,
+  };
+}
+
+export function useAssignBranchStaff() {
+  const { isPlatformAdmin, isLoading: isLoadingRoles } = useRoles();
+  const { writeAsync: writeCompanyManager, isPending: isPendingCM, isSuccess: isSuccessCM, isError: isErrorCM, error: errorCM, data: dataCM, reset: resetCM } =
+    useCompanyManagerWrite();
+
+  const assignStaff = useCallback(
+    async (staffAddress: `0x${string}`, companyId: bigint, branchId: bigint) => {
+      if (!isPlatformAdmin) {
+        throw new Error("Unauthorized: Must be platform admin");
+      }
+
+      return writeCompanyManager("assignBranchStaff", [staffAddress, companyId, branchId]);
+    },
+    [writeCompanyManager, isPlatformAdmin]
+  );
+
+  return {
+    assignStaff,
+    isPending: isPendingCM,
+    isSuccess: isSuccessCM,
+    isError: isErrorCM,
+    error: errorCM,
+    txHash: dataCM,
+    reset: resetCM,
+    isAuthorized: isPlatformAdmin,
+    isLoadingRoles,
+  };
+}
+
+export function useGrantVoucherManagerStaffRole() {
+  const { isPlatformAdmin, isLoading: isLoadingRoles } = useRoles();
+  const { writeAsync, isPending, isSuccess, isError, error, data, reset } =
+    useVoucherManagerWrite();
+
+  const grantStaffRole = useCallback(
+    async (staffAddress: `0x${string}`) => {
+      if (!isPlatformAdmin) {
+        throw new Error("Unauthorized: Must be platform admin");
+      }
+
+      return writeAsync("grantStaffRole", [staffAddress]);
+    },
+    [writeAsync, isPlatformAdmin]
+  );
+
+  return {
+    grantStaffRole,
+    isPending,
+    isSuccess,
+    isError,
+    error,
+    txHash: data,
+    reset,
+    isAuthorized: isPlatformAdmin,
+    isLoadingRoles,
+  };
+}
+
+const BRANCH_STAFF_ROLE_HASH = "0x45f38dbdf8e6d346f59dbe508e964d6aad44a9632bbdf1d41126e061be782428" as `0x${string}`;
+
+export function useGrantCylinderRegistryStaffRole() {
+  const { isPlatformAdmin, isLoading: isLoadingRoles } = useRoles();
+  const { writeAsync, isPending, isSuccess, isError, error, data, reset } =
+    useCylinderRegistryWrite();
+
+  const grantStaffRole = useCallback(
+    async (staffAddress: `0x${string}`) => {
+      if (!isPlatformAdmin) {
+        throw new Error("Unauthorized: Must be platform admin");
+      }
+
+      return writeAsync("grantRole", [BRANCH_STAFF_ROLE_HASH, staffAddress]);
+    },
+    [writeAsync, isPlatformAdmin]
+  );
+
+  return {
+    grantStaffRole,
+    isPending,
+    isSuccess,
+    isError,
+    error,
+    txHash: data,
+    reset,
+    isAuthorized: isPlatformAdmin,
+    isLoadingRoles,
+  };
+}
+
+export function useGrantGasSwapPlatformStaffRole() {
+  const { isPlatformAdmin, isLoading: isLoadingRoles } = useRoles();
+  const { writeAsync, isPending, isSuccess, isError, error, data, reset } =
+    useGasSwapPlatformWrite();
+
+  const grantStaffRole = useCallback(
+    async (staffAddress: `0x${string}`) => {
+      if (!isPlatformAdmin) {
+        throw new Error("Unauthorized: Must be platform admin");
+      }
+
+      return writeAsync("grantRole", [BRANCH_STAFF_ROLE_HASH, staffAddress]);
+    },
+    [writeAsync, isPlatformAdmin]
+  );
+
+  return {
+    grantStaffRole,
     isPending,
     isSuccess,
     isError,

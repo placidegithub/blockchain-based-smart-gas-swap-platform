@@ -47,7 +47,7 @@ function BranchRow({
     return null;
   }
 
-  const districtName = RWANDA_DISTRICTS[Number(branch.districtId)] || `District ${branch.districtId}`;
+  const districtName = branch.district || 'Unknown District';
 
   return (
     <tr className="border-b border-border/50 hover:bg-white/5 transition-colors">
