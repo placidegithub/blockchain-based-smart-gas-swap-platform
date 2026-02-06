@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { generateTestWallet, downloadWalletCredentials, type GeneratedWallet } from '@/lib/wallet-generator';
+import { useWalletClient } from 'wagmi';
+import { parseEther } from 'viem';
 
 const RWANDA_DISTRICTS = [
   { id: 0, name: 'Bugesera', province: 'Eastern' },
@@ -60,7 +62,7 @@ function CompanyOption({ companyId }: { companyId: bigint }) {
   );
 }
 
-type FormStep = 'form' | 'creating-branch' | 'granting-voucher-role' | 'granting-cylinder-role' | 'granting-platform-role' | 'assigning-staff' | 'complete';
+type FormStep = 'form' | 'creating-branch' | 'granting-voucher-role' | 'granting-cylinder-role' | 'granting-platform-role' | 'assigning-staff' | 'funding-wallet' | 'complete';
 
 export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
@@ -72,6 +74,7 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
   const [step, setStep] = useState<FormStep>('form');
   const [createdBranchId, setCreatedBranchId] = useState<bigint | null>(null);
 
+  const { data: walletClient } = useWalletClient();
   const { companyIds, isLoading: isLoadingCompanies } = useCompanies();
   const { count: branchCount, refetch: refetchBranchCount } = useBranchCount();
   const {
@@ -196,14 +199,59 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
   }, [isPlatformRoleGranted, platformRoleTxHash, step, generatedWallet, selectedCompanyId, createdBranchId, assignStaff]);
 
   useEffect(() => {
-    if (isStaffAssigned && staffTxHash && step === 'assigning-staff') {
+    if (isStaffAssigned && staffTxHash && step === 'assigning-staff' && generatedWallet) {
+      setStep('funding-wallet');
+      (async () => {
+        try {
+          const response = await fetch('http://127.0.0.1:8545', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              method: 'hardhat_setBalance',
+              params: [generatedWallet.address, '0x8AC7230489E80000'],
+              id: Date.now(),
+            }),
+          });
+          const result = await response.json();
+          if (result.error) {
+            throw new Error(result.error.message);
+          }
+          setStep('complete');
+          setMessage({
+            type: 'success',
+            text: `Branch "${branchName}" created, manager wallet assigned and funded with 10 ETH!`,
+          });
+        } catch {
+          try {
+            if (walletClient) {
+              await walletClient.sendTransaction({
+                to: generatedWallet.address,
+                value: parseEther('10'),
+              });
+              setStep('complete');
+              setMessage({
+                type: 'success',
+                text: `Branch "${branchName}" created, manager wallet assigned and funded with 10 ETH!`,
+              });
+              return;
+            }
+          } catch {}
+          setStep('complete');
+          setMessage({
+            type: 'error',
+            text: `Branch "${branchName}" created and manager assigned, but auto-funding failed. Please fund the wallet manually using: FUND_ADDRESS=${generatedWallet.address} npx hardhat run scripts/fund-wallet.js --network localhost`,
+          });
+        }
+      })();
+    } else if (isStaffAssigned && staffTxHash && step === 'assigning-staff') {
       setStep('complete');
       setMessage({
         type: 'success',
         text: `Branch "${branchName}" created and manager wallet assigned successfully!`,
       });
     }
-  }, [isStaffAssigned, staffTxHash, step, branchName]);
+  }, [isStaffAssigned, staffTxHash, step, branchName, generatedWallet, walletClient]);
 
   useEffect(() => {
     if (isBranchError && branchError) {
@@ -605,11 +653,12 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
                 <div className="flex items-center gap-3">
                   <div className="animate-spin h-5 w-5 border-2 border-cyan-500 border-t-transparent rounded-full" />
                   <span className="text-cyan-400">
-                    {step === 'creating-branch' && 'Step 1/5: Creating branch on blockchain...'}
-                    {step === 'granting-voucher-role' && 'Step 2/5: Granting staff role on VoucherManager...'}
-                    {step === 'granting-cylinder-role' && 'Step 3/5: Granting staff role on CylinderRegistry...'}
-                    {step === 'granting-platform-role' && 'Step 4/5: Granting staff role on GasSwapPlatform...'}
-                    {step === 'assigning-staff' && 'Step 5/5: Assigning manager to branch...'}
+                    {step === 'creating-branch' && 'Step 1/6: Creating branch on blockchain...'}
+                    {step === 'granting-voucher-role' && 'Step 2/6: Granting staff role on VoucherManager...'}
+                    {step === 'granting-cylinder-role' && 'Step 3/6: Granting staff role on CylinderRegistry...'}
+                    {step === 'granting-platform-role' && 'Step 4/6: Granting staff role on GasSwapPlatform...'}
+                    {step === 'assigning-staff' && 'Step 5/6: Assigning manager to branch...'}
+                    {step === 'funding-wallet' && 'Step 6/6: Funding manager wallet with test ETH...'}
                   </span>
                 </div>
               </div>
