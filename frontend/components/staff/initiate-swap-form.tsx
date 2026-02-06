@@ -294,8 +294,22 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
         cylinderSerialNumber: cylinderSerial,
         branchId: selectedBranchId,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to initiate swap:', err);
+      const errorMessage = err?.message || 'An error occurred';
+      if (errorMessage.includes('Cylinder not registered')) {
+        setFormErrors({ submit: 'This cylinder serial number is not registered in the system. Contact an administrator.' });
+      } else if (errorMessage.includes('Company mismatch')) {
+        setFormErrors({ submit: 'This cylinder belongs to a different company than the selected branch.' });
+      } else if (errorMessage.includes('Invalid branch')) {
+        setFormErrors({ submit: 'The selected branch is not valid or active.' });
+      } else if (errorMessage.includes('Cylinder is retired')) {
+        setFormErrors({ submit: 'This cylinder has been retired and cannot be used.' });
+      } else if (errorMessage.includes('User rejected') || errorMessage.includes('User denied')) {
+        setFormErrors({ submit: 'Transaction was rejected. Please try again and confirm in MetaMask.' });
+      } else {
+        setFormErrors({ submit: `Failed to create voucher: ${errorMessage.slice(0, 100)}` });
+      }
     }
   };
 
@@ -337,8 +351,23 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
   };
 
   const getCylinderTypeLabel = (): string => {
-    const cylinderType = CYLINDER_TYPES.find(t => t.id === selectedCylinderType);
-    return cylinderType?.label || '12 kg Cylinder';
+    // First try matching from the contract cylinder types (handles per-company IDs)
+    const contractType = cylinderTypes.find(t => t.id === selectedCylinderType);
+    if (contractType) {
+      return `${Number(contractType.weightKg)} kg Cylinder`;
+    }
+    // Fallback to static list (IDs 1-3)
+    const staticType = CYLINDER_TYPES.find(t => t.id === selectedCylinderType);
+    if (staticType) {
+      return staticType.label;
+    }
+    // Last resort: detect from cylinder serial
+    if (cylinderSerial) {
+      if (cylinderSerial.toLowerCase().includes('15kg')) return '15 kg Cylinder';
+      if (cylinderSerial.toLowerCase().includes('12kg')) return '12 kg Cylinder';
+      if (cylinderSerial.toLowerCase().includes('6kg')) return '6 kg Cylinder';
+    }
+    return '6 kg Cylinder';
   };
 
   if (isLoadingRoles) {
@@ -628,13 +657,21 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
                 </p>
               </>
             ) : (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-                <p className="font-medium">No cylinders available at this branch</p>
-                <p className="text-xs mt-1 text-red-300">
-                  Cylinders must be registered in the system before they can be used. 
-                  Contact an administrator to register cylinders for this branch, or select a different branch.
-                </p>
-              </div>
+              <>
+                <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-sm">
+                  <p className="font-medium">No pre-registered cylinders at this branch</p>
+                  <p className="text-xs mt-1 text-yellow-300">
+                    You can manually enter the serial number from the customer&apos;s cylinder.
+                  </p>
+                </div>
+                <Input
+                  variant="glow"
+                  placeholder="Enter cylinder serial number (e.g., CYL-C01-B001-12kg-001)"
+                  value={cylinderSerial}
+                  onChange={(e) => handleCylinderSerialChange(e.target.value)}
+                  disabled={isPending}
+                />
+              </>
             )}
             {formErrors.cylinderSerial && <p className="text-xs text-red-500">{formErrors.cylinderSerial}</p>}
           </div>
@@ -678,6 +715,12 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
           {isError && error && (
             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
               {error.message || 'An error occurred while initiating the swap'}
+            </div>
+          )}
+
+          {formErrors.submit && (
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+              {formErrors.submit}
             </div>
           )}
 

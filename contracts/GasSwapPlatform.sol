@@ -86,8 +86,7 @@ contract GasSwapPlatform is GasSwapAccessControl {
             cylinderRegistry.getCylinderBySerial(cylinderSerialNumber);
         
         require(cylinderId > 0, "Cylinder not registered");
-        require(cylinderRegistry.isCylinderAvailable(cylinderId), "Cylinder not available");
-        require(cylinder.currentBranchId == branchId, "Cylinder not at this branch");
+        require(cylinder.status != CylinderRegistry.CylinderStatus.RETIRED, "Cylinder is retired");
         
         // Validate branch
         require(companyManager.isValidBranch(branchId), "Invalid branch");

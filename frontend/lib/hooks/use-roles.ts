@@ -1,6 +1,6 @@
 import { useAccount } from "wagmi";
 import { useMemo } from "react";
-import { useVoucherManagerRead } from "./use-contracts";
+import { useGasSwapPlatformRead, useVoucherManagerRead, useCompanyManagerRead } from "./use-contracts";
 import { keccak256, stringToHex } from "viem";
 
 // Use stringToHex to properly encode strings to bytes (matches Solidity's keccak256("string"))
@@ -30,7 +30,6 @@ export function useRoles(): RolesState {
 
   const enabled = isConnected && !!address;
 
-  // Read role constants from the contract to ensure they match
   const { data: contractAdminRole, isFetched: isFetchedAdminRole } = useVoucherManagerRead(
     "PLATFORM_ADMIN_ROLE",
     [],
@@ -43,35 +42,62 @@ export function useRoles(): RolesState {
     true
   );
 
-  // Use contract role values if available, otherwise fall back to computed values
   const adminRoleToUse = (contractAdminRole as `0x${string}`) || PLATFORM_ADMIN_ROLE;
   const staffRoleToUse = (contractStaffRole as `0x${string}`) || BRANCH_STAFF_ROLE;
 
   const rolesReady = isFetchedAdminRole && isFetchedStaffRole;
 
-  const { data: isPlatformAdmin, isLoading: isLoadingAdmin, isFetched: isFetchedAdmin } = useVoucherManagerRead(
+  // Check admin role on VoucherManager (admin always has role here from deploy)
+  const { data: isAdminOnVoucher, isLoading: isLoadingAdminV, isFetched: isFetchedAdminV } = useVoucherManagerRead(
     "hasRole",
     [adminRoleToUse, address],
     enabled && rolesReady
   );
 
-  const { data: isBranchStaff, isLoading: isLoadingStaff, isFetched: isFetchedStaff } = useVoucherManagerRead(
+  // Check admin role on GasSwapPlatform too
+  const { data: isAdminOnPlatform, isLoading: isLoadingAdminP, isFetched: isFetchedAdminP } = useGasSwapPlatformRead(
+    "hasRole",
+    [adminRoleToUse, address],
+    enabled && rolesReady
+  );
+
+  // Check staff role on VoucherManager (existing staff have role here)
+  const { data: isStaffOnVoucher, isLoading: isLoadingStaffV, isFetched: isFetchedStaffV } = useVoucherManagerRead(
     "hasRole",
     [staffRoleToUse, address],
     enabled && rolesReady
   );
 
-  // Consider loading if: roles not ready, queries are actively loading, or wallet is connected but data hasn't been fetched yet
-  const isLoading = !rolesReady || isLoadingAdmin || isLoadingStaff || (enabled && (!isFetchedAdmin || !isFetchedStaff));
+  // Check staff role on GasSwapPlatform (new staff get role here via add-branch form)
+  const { data: isStaffOnPlatform, isLoading: isLoadingStaffP, isFetched: isFetchedStaffP } = useGasSwapPlatformRead(
+    "hasRole",
+    [staffRoleToUse, address],
+    enabled && rolesReady
+  );
+
+  // Check staff role on CompanyManager (assignBranchStaff always grants role here)
+  const { data: isStaffOnCompany, isLoading: isLoadingStaffC, isFetched: isFetchedStaffC } = useCompanyManagerRead(
+    "hasRole",
+    [staffRoleToUse, address],
+    enabled && rolesReady
+  );
+
+  const isLoading = !rolesReady
+    || isLoadingAdminV || isLoadingAdminP || isLoadingStaffV || isLoadingStaffP || isLoadingStaffC
+    || (enabled && (!isFetchedAdminV || !isFetchedAdminP || !isFetchedStaffV || !isFetchedStaffP || !isFetchedStaffC));
 
   return useMemo(
-    () => ({
-      isPlatformAdmin: Boolean(isPlatformAdmin),
-      isBranchStaff: Boolean(isBranchStaff),
-      isLoading,
-      hasAnyRole: Boolean(isPlatformAdmin) || Boolean(isBranchStaff),
-    }),
-    [isPlatformAdmin, isBranchStaff, isLoading]
+    () => {
+      const isPlatformAdmin = Boolean(isAdminOnVoucher) || Boolean(isAdminOnPlatform);
+      const isBranchStaff = Boolean(isStaffOnVoucher) || Boolean(isStaffOnPlatform) || Boolean(isStaffOnCompany);
+      return {
+        isPlatformAdmin,
+        isBranchStaff,
+        isLoading,
+        hasAnyRole: isPlatformAdmin || isBranchStaff,
+      };
+    },
+    [isAdminOnVoucher, isAdminOnPlatform, isStaffOnVoucher, isStaffOnPlatform, isStaffOnCompany, isLoading]
   );
 }
 
@@ -80,17 +106,22 @@ export function useHasRole(role: `0x${string}`): { hasRole: boolean; isLoading: 
 
   const enabled = isConnected && !!address;
 
-  const { data: hasRole, isLoading: isQueryLoading, isFetched } = useVoucherManagerRead(
+  const { data: hasRoleV, isLoading: isLoadingV, isFetched: isFetchedV } = useVoucherManagerRead(
     "hasRole",
     [role, address],
     enabled
   );
 
-  // Consider loading if: query is actively loading OR if wallet is connected but data hasn't been fetched yet
-  const isLoading = isQueryLoading || (enabled && !isFetched);
+  const { data: hasRoleP, isLoading: isLoadingP, isFetched: isFetchedP } = useGasSwapPlatformRead(
+    "hasRole",
+    [role, address],
+    enabled
+  );
+
+  const isLoading = isLoadingV || isLoadingP || (enabled && (!isFetchedV || !isFetchedP));
 
   return {
-    hasRole: Boolean(hasRole),
+    hasRole: Boolean(hasRoleV) || Boolean(hasRoleP),
     isLoading,
   };
 }

@@ -128,8 +128,8 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
 
   useEffect(() => {
     if (isBranchCreated && branchTxHash && step === 'creating-branch') {
-      refetchBranchCount().then(() => {
-        const newBranchId = (branchCount ?? 0n) + 1n;
+      refetchBranchCount().then((result) => {
+        const newBranchId = result.data as bigint;
         setCreatedBranchId(newBranchId);
         
         if (generatedWallet) {
@@ -150,7 +150,7 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
         }
       });
     }
-  }, [isBranchCreated, branchTxHash, step, generatedWallet, branchCount, branchName, grantStaffRole, refetchBranchCount]);
+  }, [isBranchCreated, branchTxHash, step, generatedWallet, branchName, grantStaffRole, refetchBranchCount]);
 
   useEffect(() => {
     if (isVoucherRoleGranted && voucherRoleTxHash && step === 'granting-voucher-role' && generatedWallet) {
@@ -605,9 +605,11 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
                 <div className="flex items-center gap-3">
                   <div className="animate-spin h-5 w-5 border-2 border-cyan-500 border-t-transparent rounded-full" />
                   <span className="text-cyan-400">
-                    {step === 'creating-branch' && 'Step 1/3: Creating branch on blockchain...'}
-                    {step === 'granting-voucher-role' && 'Step 2/3: Granting staff role on VoucherManager...'}
-                    {step === 'assigning-staff' && 'Step 3/3: Assigning manager to branch...'}
+                    {step === 'creating-branch' && 'Step 1/5: Creating branch on blockchain...'}
+                    {step === 'granting-voucher-role' && 'Step 2/5: Granting staff role on VoucherManager...'}
+                    {step === 'granting-cylinder-role' && 'Step 3/5: Granting staff role on CylinderRegistry...'}
+                    {step === 'granting-platform-role' && 'Step 4/5: Granting staff role on GasSwapPlatform...'}
+                    {step === 'assigning-staff' && 'Step 5/5: Assigning manager to branch...'}
                   </span>
                 </div>
               </div>

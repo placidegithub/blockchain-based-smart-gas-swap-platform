@@ -1,12 +1,11 @@
 const { ethers } = require("hardhat");
 
 async function main() {
-  // Get the wallet address from command line argument
-  const walletAddress = process.argv[2];
+  // Set the wallet address to fund here
+  const walletAddress = process.env.FUND_ADDRESS || "0x802a2638B0d438501d755cbbc48f651FfcEe073C";
   
   if (!walletAddress) {
-    console.log("Usage: npx hardhat run scripts/fund-wallet.js --network localhost <WALLET_ADDRESS>");
-    console.log("Example: npx hardhat run scripts/fund-wallet.js --network localhost 0x1234...");
+    console.log("Set FUND_ADDRESS environment variable or edit this script");
     process.exit(1);
   }
 

@@ -18,6 +18,9 @@
     "setup:roles": "npx hardhat run scripts/setup-test-roles.js --network localhost",
     "setup:cylinders": "npx hardhat run scripts/setup-test-cylinders.js --network localhost",
     "setup:customer": "npx hardhat run scripts/setup-customer-test.js --network localhost",
+    "setup:all": "npx hardhat run scripts/setup-all.js --network localhost",
+    "fix:roles": "npx hardhat run scripts/fix-staff-roles.js --network localhost",
+    "fund:wallet": "npx hardhat run scripts/fund-wallet.js --network localhost",
     "clean": "npx hardhat clean",
     "coverage": "npx hardhat coverage"
   },
