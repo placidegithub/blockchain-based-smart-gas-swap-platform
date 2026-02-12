@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Camera, CameraOff, Keyboard, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, resolveVoucherId } from '@/lib/utils';
 
 interface VoucherScannerProps {
   onScan: (voucherId: string) => void;
@@ -117,9 +117,17 @@ export function VoucherScanner({ onScan, className }: VoucherScannerProps) {
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (manualInput.trim()) {
-      const voucherId = extractVoucherId(manualInput.trim());
-      setScannedResult(voucherId);
-      onScan(voucherId);
+      const extracted = extractVoucherId(manualInput.trim());
+      const resolved = resolveVoucherId(extracted);
+      if (resolved) {
+        setScannedResult(manualInput.trim());
+        setErrorMessage('');
+        onScan(resolved);
+      } else {
+        setErrorMessage(
+          `Could not resolve "${manualInput.trim()}" to a voucher. Enter the numeric voucher ID or a GSV-XXXX-XXXX code from this device.`
+        );
+      }
     }
   };
 
@@ -230,10 +238,22 @@ export function VoucherScanner({ onScan, className }: VoucherScannerProps) {
           <form onSubmit={handleManualSubmit} className="space-y-4">
             <Input
               variant="glow"
-              placeholder="Enter voucher ID or paste verification URL"
+              placeholder="e.g. GSV-TQ9R-ESDB or numeric ID (3)"
               value={manualInput}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setManualInput(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setManualInput(e.target.value);
+                if (errorMessage) setErrorMessage('');
+              }}
             />
+            <p className="text-xs text-muted-foreground">
+              Enter the voucher code (GSV-XXXX-XXXX) from SMS/email, a numeric voucher ID, or paste a verification URL.
+            </p>
+            {errorMessage && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={!manualInput.trim()}>
               Verify Voucher
             </Button>

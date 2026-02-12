@@ -15,8 +15,9 @@ import { useVoucherCustomerInfo } from '@/lib/hooks/use-recent-vouchers';
 import { useCompleteSwap } from '@/lib/hooks/use-swap';
 import { useCompany, useBranch, useBranchByCompanyAndDistrict } from '@/lib/hooks/use-companies';
 import { useCylinderTypes, useCylinderType, useAvailableCylindersAtBranch } from '@/lib/hooks/use-cylinders';
-import { cn } from '@/lib/utils';
+import { cn, formatVoucherId, saveVoucherIdMapping } from '@/lib/utils';
 import { formatRWF, getVoucherPaymentStatus } from '@/lib/payment';
+import { getRecentVoucherIds } from '@/lib/hooks/use-recent-vouchers';
 
 const RWANDA_DISTRICTS = [
   { id: 0, name: 'Bugesera', province: 'Eastern' },
@@ -62,22 +63,12 @@ const groupedDistricts = RWANDA_DISTRICTS.reduce(
   {} as Record<string, typeof RWANDA_DISTRICTS>
 );
 
-function formatVoucherId(numericId: string): string {
-  const num = parseInt(numericId, 10);
-  if (isNaN(num)) return numericId;
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let hash = num * 2654435761;
-  let code = '';
-  for (let i = 0; i < 8; i++) {
-    code += chars[Math.abs(hash) % chars.length];
-    hash = Math.floor(hash / chars.length) + num;
-  }
-  return `GSV-${code.slice(0, 4)}-${code.slice(4, 8)}`;
-}
-
-
-
 export default function RedeemVoucherPage() {
+  useEffect(() => {
+    const recent = getRecentVoucherIds(50);
+    recent.forEach((v) => saveVoucherIdMapping(v.voucherId));
+  }, []);
+
   const [scannedVoucherId, setScannedVoucherId] = useState<string | null>(null);
   const [voucherIdBigInt, setVoucherIdBigInt] = useState<bigint | undefined>();
   const [selectedDistrictId, setSelectedDistrictId] = useState<string>('');

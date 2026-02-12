@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useCompleteSwap, useVerifyVoucher, useCompany, useBranch, useCylinderTypes, useAvailableCylindersAtBranch, useCylinderBySerial, useCurrentStaffInfo } from '@/lib/hooks';
+import { useCompleteSwap, useVerifyVoucher, useCompany, useBranch, useCylinderTypeById, useAvailableCylindersAtBranch, useCylinderBySerial, useCurrentStaffInfo } from '@/lib/hooks';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -297,9 +297,7 @@ interface VoucherVerificationResultProps {
 
 function VoucherVerificationResult({ verification, companyId, cylinderTypeId }: VoucherVerificationResultProps) {
   const { company, isLoading: isLoadingCompany } = useCompany(companyId);
-  const { cylinderTypes } = useCylinderTypes();
-  
-  const cylinderType = cylinderTypes.find((t) => t.id === cylinderTypeId);
+  const { cylinderType } = useCylinderTypeById(cylinderTypeId);
 
   return (
     <div

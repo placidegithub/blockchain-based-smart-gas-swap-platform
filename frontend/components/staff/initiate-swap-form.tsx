@@ -6,7 +6,7 @@ import { useWallet } from '@/lib/hooks/use-wallet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+import { cn, formatVoucherId, saveVoucherIdMapping } from '@/lib/utils';
 import { sendVoucherNotification } from '@/lib/notifications';
 import { PaymentForm } from '@/components/payment';
 import { getCylinderPrice, formatRWF } from '@/lib/payment';
@@ -62,19 +62,6 @@ function generateWalletFromPhone(phone: string): string {
 }
 
 
-
-function formatVoucherId(numericId: bigint | string): string {
-  const num = typeof numericId === 'bigint' ? Number(numericId) : parseInt(numericId.toString(), 10);
-  if (isNaN(num)) return numericId.toString();
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let hash = num * 2654435761;
-  let code = '';
-  for (let i = 0; i < 8; i++) {
-    code += chars[Math.abs(hash) % chars.length];
-    hash = Math.floor(hash / chars.length) + num;
-  }
-  return `GSV-${code.slice(0, 4)}-${code.slice(4, 8)}`;
-}
 
 function saveVoucherMetadata(key: string, metadata: { cylinderSerial: string; cylinderCondition: 'empty' | 'full' }) {
   if (typeof window === 'undefined') return;
@@ -158,6 +145,9 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
       // Use actual voucher ID from blockchain
       setCreatedVoucherId(createdVoucherIdFromChain);
       setNotificationSent(true);
+      
+      // Save formatted-to-numeric ID mapping for manual redemption
+      saveVoucherIdMapping(createdVoucherIdFromChain.toString());
       
       // Save voucher metadata for later display
       saveVoucherMetadata(createdVoucherIdFromChain.toString(), {

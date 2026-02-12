@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useCompanies, useCompany, useBranches, useBranch } from '@/lib/hooks/use-companies';
-import { useRegisterCylinder, useCylinderTypes, type CylinderType } from '@/lib/hooks/use-cylinders';
+import { useRegisterCylinder, useCylinderTypesForCompany, useCylinderTypeById } from '@/lib/hooks/use-cylinders';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,6 +41,24 @@ function BranchOption({ branchId }: { branchId: bigint }) {
   );
 }
 
+function CylinderTypeOption({ typeId }: { typeId: bigint }) {
+  const { cylinderType, isLoading } = useCylinderTypeById(typeId);
+
+  if (isLoading) {
+    return <option value={typeId.toString()}>Loading...</option>;
+  }
+
+  if (!cylinderType || !cylinderType.isActive) {
+    return null;
+  }
+
+  return (
+    <option value={typeId.toString()}>
+      {cylinderType.name} - {Number(cylinderType.weightKg)}kg ({Number(cylinderType.priceRwf).toLocaleString()} RWF)
+    </option>
+  );
+}
+
 export function AddCylinderForm({ className, onSuccess }: AddCylinderFormProps) {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
@@ -52,7 +70,9 @@ export function AddCylinderForm({ className, onSuccess }: AddCylinderFormProps) 
   const { branchIds, isLoading: isLoadingBranches } = useBranches(
     selectedCompanyId ? BigInt(selectedCompanyId) : undefined
   );
-  const { cylinderTypes, isLoading: isLoadingTypes } = useCylinderTypes();
+  const { typeIds: cylinderTypeIds, isLoading: isLoadingTypes } = useCylinderTypesForCompany(
+    selectedCompanyId ? BigInt(selectedCompanyId) : undefined
+  );
   const {
     registerCylinder,
     isPending,
@@ -67,6 +87,7 @@ export function AddCylinderForm({ className, onSuccess }: AddCylinderFormProps) 
 
   useEffect(() => {
     setSelectedBranchId('');
+    setSelectedTypeId('');
   }, [selectedCompanyId]);
 
   useEffect(() => {
@@ -214,16 +235,20 @@ export function AddCylinderForm({ className, onSuccess }: AddCylinderFormProps) 
               Cylinder Type
             </label>
             <select
-              className="flex w-full h-10 px-4 py-2 rounded-lg bg-input border border-cyan-500/30 text-foreground focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20"
+              className="flex w-full h-10 px-4 py-2 rounded-lg bg-input border border-cyan-500/30 text-foreground focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-50"
               value={selectedTypeId}
               onChange={(e) => setSelectedTypeId(e.target.value)}
-              disabled={isPending || isLoadingTypes}
+              disabled={isPending || !selectedCompanyId || isLoadingTypes}
             >
-              <option value="">Select cylinder type</option>
-              {cylinderTypes.map((type: CylinderType) => (
-                <option key={type.id.toString()} value={type.id.toString()}>
-                  {type.name} - {Number(type.weightKg)}kg ({Number(type.priceRwf).toLocaleString()} RWF)
-                </option>
+              <option value="">
+                {!selectedCompanyId
+                  ? 'Select a company first'
+                  : isLoadingTypes
+                  ? 'Loading cylinder types...'
+                  : 'Select cylinder type'}
+              </option>
+              {cylinderTypeIds.map((id) => (
+                <CylinderTypeOption key={id.toString()} typeId={id} />
               ))}
             </select>
           </div>

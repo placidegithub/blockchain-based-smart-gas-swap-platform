@@ -34,15 +34,77 @@ export interface CylinderTypeInfo {
   priceRwf: bigint;
 }
 
-export function useCylinderTypes() {
-  const { data, isLoading, error, refetch } = useCylinderRegistryRead(
-    "getCylinderTypes",
+export function useCylinderTypeCount() {
+  const { data, isLoading, error, refetch } = useCompanyManagerRead(
+    "cylinderTypeCount",
     [],
     true
   );
 
   return {
-    cylinderTypes: (data as CylinderType[] | undefined) ?? [],
+    count: data as bigint | undefined,
+    isLoading,
+    error,
+    refetch,
+  };
+}
+
+export function useCylinderTypeById(typeId: bigint | undefined) {
+  const { data, isLoading, error, refetch } = useCompanyManagerRead(
+    "getCylinderType",
+    [typeId],
+    typeId !== undefined && typeId > 0n
+  );
+
+  const result = data as
+    | { id: bigint; companyId: bigint; name: string; capacityKg: bigint; depositAmount: bigint; isActive: boolean }
+    | undefined;
+
+  return {
+    cylinderType: result
+      ? {
+          id: result.id,
+          name: result.name || `${Number(result.capacityKg)}kg`,
+          weightKg: result.capacityKg,
+          priceRwf: result.depositAmount,
+          isActive: result.isActive,
+        }
+      : undefined,
+    isLoading,
+    error,
+    refetch,
+  };
+}
+
+export function useCylinderTypes() {
+  const { count, isLoading: isLoadingCount } = useCylinderTypeCount();
+
+  const typeIds: bigint[] = [];
+  if (count && count > 0n) {
+    for (let i = 1n; i <= count; i++) {
+      typeIds.push(i);
+    }
+  }
+
+  const cylinderTypes: CylinderType[] = [];
+
+  return {
+    typeIds,
+    cylinderTypes,
+    isLoading: isLoadingCount,
+    count,
+  };
+}
+
+export function useCylinderTypesForCompany(companyId: bigint | undefined) {
+  const { data, isLoading, error, refetch } = useCompanyManagerRead(
+    "getCompanyCylinderTypes",
+    [companyId],
+    companyId !== undefined && companyId > 0n
+  );
+
+  return {
+    typeIds: (data as bigint[] | undefined) ?? [],
     isLoading,
     error,
     refetch,
@@ -126,6 +188,7 @@ export interface RegisterCylinderParams {
   typeId: bigint;
   serialNumber: string;
   branchId: bigint;
+  manufacturingDate?: bigint;
 }
 
 export function useRegisterCylinder() {
@@ -141,11 +204,14 @@ export function useRegisterCylinder() {
         throw new Error("Unauthorized: Must be branch staff or admin");
       }
 
+      const manufacturingDate = params.manufacturingDate ?? BigInt(Math.floor(Date.now() / 1000));
+
       return writeAsync("registerCylinder", [
         params.companyId,
         params.typeId,
         params.serialNumber,
         params.branchId,
+        manufacturingDate,
       ]);
     },
     [writeAsync, isAuthorized]

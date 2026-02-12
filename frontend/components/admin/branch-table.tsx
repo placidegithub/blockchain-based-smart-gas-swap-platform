@@ -1,23 +1,29 @@
 'use client';
 
-import { useBranches, useBranch, useCompany, type Branch } from '@/lib/hooks/use-companies';
+import { useState } from 'react';
+import { useBranches, useBranch, useCompany, useAllBranches, useCompanies, type Branch } from '@/lib/hooks/use-companies';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-
-const RWANDA_DISTRICTS = [
-  'Bugesera', 'Burera', 'Gakenke', 'Gasabo', 'Gatsibo',
-  'Gicumbi', 'Gisagara', 'Huye', 'Kamonyi', 'Karongi',
-  'Kayonza', 'Kicukiro', 'Kirehe', 'Muhanga', 'Musanze',
-  'Ngoma', 'Ngororero', 'Nyabihu', 'Nyagatare', 'Nyamagabe',
-  'Nyamasheke', 'Nyanza', 'Nyarugenge', 'Nyaruguru', 'Rubavu',
-  'Ruhango', 'Rulindo', 'Rusizi', 'Rutsiro', 'Rwamagana',
-];
 
 interface BranchTableProps {
   className?: string;
   companyId?: bigint;
   onViewDetails?: (branchId: bigint) => void;
+}
+
+function CompanyFilterOption({ companyId }: { companyId: bigint }) {
+  const { company, isLoading } = useCompany(companyId);
+
+  if (isLoading) {
+    return <option value={companyId.toString()}>Loading...</option>;
+  }
+
+  return (
+    <option value={companyId.toString()}>
+      {company?.name || `Company ${companyId}`}
+    </option>
+  );
 }
 
 function BranchRow({
@@ -33,7 +39,7 @@ function BranchRow({
   if (isLoading) {
     return (
       <tr className="border-b border-border/50">
-        <td className="py-4 px-4" colSpan={6}>
+        <td className="py-4 px-4" colSpan={7}>
           <div className="flex items-center gap-2">
             <div className="animate-spin h-4 w-4 border-2 border-cyan-500 border-t-transparent rounded-full" />
             <span className="text-muted-foreground">Loading...</span>
@@ -101,23 +107,95 @@ function BranchRow({
   );
 }
 
-export function BranchTable({ className, companyId, onViewDetails }: BranchTableProps) {
-  const { branchIds, isLoading, error, refetch } = useBranches(companyId);
+function BranchTableContent({
+  branchIds,
+  isLoading,
+  emptyMessage,
+  onViewDetails,
+}: {
+  branchIds: bigint[];
+  isLoading: boolean;
+  emptyMessage: string;
+  onViewDetails?: (branchId: bigint) => void;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border text-left">
+            <th className="pb-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              ID
+            </th>
+            <th className="pb-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Name
+            </th>
+            <th className="pb-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Company
+            </th>
+            <th className="pb-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              District
+            </th>
+            <th className="pb-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Status
+            </th>
+            <th className="pb-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider text-center">
+              Inventory
+            </th>
+            <th className="pb-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider text-right">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {isLoading ? (
+            <tr>
+              <td className="py-8" colSpan={7}>
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin h-6 w-6 border-2 border-cyan-500 border-t-transparent rounded-full" />
+                </div>
+              </td>
+            </tr>
+          ) : branchIds.length === 0 ? (
+            <tr>
+              <td className="py-8 text-center text-muted-foreground" colSpan={7}>
+                {emptyMessage}
+              </td>
+            </tr>
+          ) : (
+            branchIds.map((id) => (
+              <BranchRow
+                key={id.toString()}
+                branchId={id}
+                onViewDetails={onViewDetails}
+              />
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
-  if (!companyId) {
-    return (
-      <Card variant="glow" className={cn('w-full', className)}>
-        <CardHeader>
-          <CardTitle>Branches</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-center py-8">
-            Select a company to view its branches
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
+export function BranchTable({ className, companyId: initialCompanyId, onViewDetails }: BranchTableProps) {
+  const [filterCompanyId, setFilterCompanyId] = useState<string>(
+    initialCompanyId ? initialCompanyId.toString() : ''
+  );
+
+  const activeCompanyId = filterCompanyId ? BigInt(filterCompanyId) : undefined;
+
+  const { companyIds, isLoading: isLoadingCompanies } = useCompanies();
+  const { branchIds: companyBranchIds, isLoading: isLoadingCompanyBranches, error: companyError, refetch: refetchCompany } = useBranches(activeCompanyId);
+  const { branchIds: allBranchIds, isLoading: isLoadingAllBranches } = useAllBranches();
+
+  const branchIds = activeCompanyId ? companyBranchIds : allBranchIds;
+  const isLoading = activeCompanyId ? isLoadingCompanyBranches : isLoadingAllBranches;
+  const error = activeCompanyId ? companyError : null;
+
+  const handleRefresh = () => {
+    if (activeCompanyId) {
+      refetchCompany();
+    }
+  };
 
   if (error) {
     return (
@@ -125,7 +203,7 @@ export function BranchTable({ className, companyId, onViewDetails }: BranchTable
         <CardContent className="py-8">
           <div className="text-center">
             <p className="text-red-400 mb-4">Failed to load branches</p>
-            <Button variant="outline" onClick={() => refetch()}>
+            <Button variant="outline" onClick={handleRefresh}>
               Retry
             </Button>
           </div>
@@ -136,70 +214,37 @@ export function BranchTable({ className, companyId, onViewDetails }: BranchTable
 
   return (
     <Card variant="glow" className={cn('w-full', className)}>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <CardTitle>Branches</CardTitle>
-        <Button variant="ghost" size="sm" onClick={() => refetch()}>
-          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <select
+            className="h-9 px-3 py-1 rounded-lg bg-input border border-cyan-500/30 text-foreground text-sm focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20"
+            value={filterCompanyId}
+            onChange={(e) => setFilterCompanyId(e.target.value)}
+            disabled={isLoadingCompanies}
+          >
+            <option value="">All Companies</option>
+            {companyIds.map((id) => (
+              <CompanyFilterOption key={id.toString()} companyId={id} />
+            ))}
+          </select>
+          {activeCompanyId && (
+            <Button variant="ghost" size="sm" onClick={handleRefresh}>
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border text-left">
-                <th className="pb-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  ID
-                </th>
-                <th className="pb-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="pb-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Company
-                </th>
-                <th className="pb-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  District
-                </th>
-                <th className="pb-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="pb-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider text-center">
-                  Inventory
-                </th>
-                <th className="pb-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider text-right">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td className="py-8" colSpan={7}>
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin h-6 w-6 border-2 border-cyan-500 border-t-transparent rounded-full" />
-                    </div>
-                  </td>
-                </tr>
-              ) : branchIds.length === 0 ? (
-                <tr>
-                  <td className="py-8 text-center text-muted-foreground" colSpan={7}>
-                    No branches registered for this company
-                  </td>
-                </tr>
-              ) : (
-                branchIds.map((id) => (
-                  <BranchRow
-                    key={id.toString()}
-                    branchId={id}
-                    onViewDetails={onViewDetails}
-                  />
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <BranchTableContent
+          branchIds={branchIds}
+          isLoading={isLoading}
+          emptyMessage={activeCompanyId ? 'No branches registered for this company' : 'No branches registered yet'}
+          onViewDetails={onViewDetails}
+        />
       </CardContent>
     </Card>
   );
