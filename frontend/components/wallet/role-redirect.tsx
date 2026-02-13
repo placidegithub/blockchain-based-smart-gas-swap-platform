@@ -13,10 +13,10 @@ export function RoleRedirect({ children }: RoleRedirectProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { isConnected } = useWallet();
-  const { primaryRole, isLoading } = usePrimaryRole();
+  const { primaryRole, isLoading, hasError } = usePrimaryRole();
 
   useEffect(() => {
-    if (!isConnected || isLoading || !primaryRole) return;
+    if (!isConnected || isLoading || hasError || !primaryRole) return;
 
     // Define role-based default paths
     const roleDefaultPaths: Record<string, string> = {
@@ -42,7 +42,7 @@ export function RoleRedirect({ children }: RoleRedirectProps) {
       router.replace(defaultPath);
     }
     // Note: Staff and admin can access /dashboard to view customer perspective
-  }, [isConnected, isLoading, primaryRole, pathname, router]);
+  }, [isConnected, isLoading, hasError, primaryRole, pathname, router]);
 
   return <>{children}</>;
 }

@@ -70,6 +70,7 @@ export default function RedeemVoucherPage() {
   }, []);
 
   const [scannedVoucherId, setScannedVoucherId] = useState<string | null>(null);
+  const [redeemedVoucherIds, setRedeemedVoucherIds] = useState<Set<string>>(new Set());
   const [voucherIdBigInt, setVoucherIdBigInt] = useState<bigint | undefined>();
   const [selectedDistrictId, setSelectedDistrictId] = useState<string>('');
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
@@ -242,11 +243,22 @@ export default function RedeemVoucherPage() {
     if (isRedeemSuccess && txHash && !notificationSent) {
       setRedemptionSuccess(true);
       setNotificationSent(true);
+      if (scannedVoucherId) {
+        setRedeemedVoucherIds(prev => new Set(prev).add(scannedVoucherId));
+      }
       sendRedemptionNotification();
     }
-  }, [isRedeemSuccess, txHash, notificationSent, sendRedemptionNotification]);
+  }, [isRedeemSuccess, txHash, notificationSent, scannedVoucherId, sendRedemptionNotification]);
 
   const handleScan = (voucherId: string) => {
+    if (redeemedVoucherIds.has(voucherId)) {
+      setScannedVoucherId(voucherId);
+      setRedemptionSuccess(false);
+      setNotificationStatus(null);
+      setFormErrors({ alreadyRedeemed: 'This voucher has already been redeemed in this session.' });
+      resetSwap();
+      return;
+    }
     setScannedVoucherId(voucherId);
     setRedemptionSuccess(false);
     setNotificationStatus(null);
@@ -420,7 +432,15 @@ export default function RedeemVoucherPage() {
                       </CardHeader>
                       <CardContent>
                         <p className="text-muted-foreground">
-                          This voucher is not valid for redemption. It may be expired, already redeemed, or cancelled.
+                          {formErrors.alreadyRedeemed
+                            ? formErrors.alreadyRedeemed
+                            : verification?.status === 'Redeemed'
+                            ? 'This voucher has already been redeemed and cannot be used again.'
+                            : verification?.status === 'Expired'
+                            ? 'This voucher has expired and can no longer be redeemed.'
+                            : verification?.status === 'Cancelled'
+                            ? 'This voucher has been cancelled.'
+                            : 'This voucher is not valid for redemption. It may be expired, already redeemed, or cancelled.'}
                         </p>
                       </CardContent>
                       <CardFooter>

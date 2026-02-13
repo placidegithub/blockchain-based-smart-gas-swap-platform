@@ -4,9 +4,8 @@ import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn, shortenAddress, formatDate } from '@/lib/utils';
-import { getCylinderPrice, formatRWF, getVoucherPaymentStatus } from '@/lib/payment';
-import { isVoucherAlreadyPaid } from '@/lib/fund-storage';
-import { Banknote, XCircle, Loader2, AlertCircle } from 'lucide-react';
+import { getCylinderPrice, formatRWF } from '@/lib/payment';
+import { Banknote, XCircle, Loader2, AlertCircle, RotateCcw } from 'lucide-react';
 
 export interface Transaction {
   voucherId: bigint;
@@ -33,6 +32,7 @@ interface TransactionListProps {
   hasMore?: boolean;
   onPayment?: (voucherId: bigint, customerPhone: string, cylinderType: string) => void;
   onCancelPayment?: (voucherId: bigint) => void;
+  onRetryPayment?: (voucherId: bigint) => void;
   className?: string;
 }
 
@@ -60,6 +60,7 @@ export function TransactionList({
   hasMore,
   onPayment,
   onCancelPayment,
+  onRetryPayment,
   className,
 }: TransactionListProps) {
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
@@ -193,19 +194,6 @@ export function TransactionList({
                           className="flex-1 bg-emerald-600 hover:bg-emerald-700"
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Double-check payment status before proceeding
-                            const voucherIdStr = tx.voucherId.toString();
-                            if (isVoucherAlreadyPaid(voucherIdStr)) {
-                              alert('This voucher has already been paid. Refreshing status...');
-                              window.location.reload();
-                              return;
-                            }
-                            const existingStatus = getVoucherPaymentStatus(voucherIdStr);
-                            if (existingStatus?.status === 'paid') {
-                              alert('This voucher has already been paid. Refreshing status...');
-                              window.location.reload();
-                              return;
-                            }
                             setProcessingPayment(txKey);
                             onPayment(tx.voucherId, tx.customerPhone || '', tx.cylinderType);
                           }}
@@ -246,6 +234,38 @@ export function TransactionList({
                         </svg>
                         Payment collected: {formatRWF(getCylinderPrice(tx.cylinderType))}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Show retry payment for cancelled/skipped payments */}
+                  {tx.type === 'deposit' && tx.paymentStatus === 'cancelled' && tx.status === 'active' && (onRetryPayment || onPayment) && (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <div className="flex items-center gap-2 text-orange-400 text-sm mb-3">
+                        <AlertCircle className="w-4 h-4" />
+                        Payment was skipped — customer must pay {formatRWF(getCylinderPrice(tx.cylinderType))} service charge before redeeming.
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="w-full bg-orange-600 hover:bg-orange-700"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onRetryPayment) {
+                            onRetryPayment(tx.voucherId);
+                          }
+                          if (onPayment) {
+                            onPayment(tx.voucherId, tx.customerPhone || '', tx.cylinderType);
+                          }
+                        }}
+                        disabled={processingPayment === txKey}
+                      >
+                        {processingPayment === txKey ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <RotateCcw className="h-4 w-4 mr-2" />
+                        )}
+                        Retry Payment — {formatRWF(getCylinderPrice(tx.cylinderType))}
+                      </Button>
                     </div>
                   )}
 

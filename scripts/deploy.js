@@ -156,6 +156,14 @@ async function main() {
   const frontendAddressesPath = path.join(__dirname, "../frontend/lib/contracts/deployed-addresses.json");
   fs.writeFileSync(frontendAddressesPath, JSON.stringify(addresses, null, 2));
   console.log("\n📁 Saved addresses to:", frontendAddressesPath);
+
+  const publicDir = path.join(__dirname, "../frontend/public");
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+  }
+  const publicAddressesPath = path.join(publicDir, "deployed-addresses.json");
+  fs.writeFileSync(publicAddressesPath, JSON.stringify(addresses, null, 2));
+  console.log("📁 Saved addresses to:", publicAddressesPath);
   
   console.log("\n✨ Platform is ready to use!");
   console.log("\n🔑 IMPORTANT: Import this private key into MetaMask to access admin/staff features:");

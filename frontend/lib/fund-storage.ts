@@ -56,6 +56,35 @@ export function getPaymentByVoucherId(voucherId: string, walletAddress?: string)
   return payments.find(p => p.voucherId === voucherId) || null;
 }
 
+export function removePaymentRecord(voucherId: string): boolean {
+  if (typeof window === "undefined") return false;
+  
+  let removed = false;
+  
+  try {
+    // Scan ALL localStorage keys that match fund storage pattern
+    // This covers both global and all wallet-specific stores
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(FUND_STORAGE_KEY)) {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const payments: PaymentRecord[] = JSON.parse(stored);
+          const filtered = payments.filter(p => p.voucherId !== voucherId);
+          if (filtered.length !== payments.length) {
+            localStorage.setItem(key, JSON.stringify(filtered));
+            removed = true;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Failed to remove payment record:", e);
+  }
+  
+  return removed;
+}
+
 export function addPaymentRecord(record: Omit<PaymentRecord, "id" | "timestamp">, walletAddress?: string): PaymentRecord | null {
   const payments = getPayments(walletAddress);
   

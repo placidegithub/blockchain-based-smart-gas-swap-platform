@@ -28,6 +28,11 @@ export function FundTracker({ className }: FundTrackerProps) {
   const [viewMode, setViewMode] = useState<'today' | 'all'>('today');
 
   const refreshData = useCallback(() => {
+    // Sync any missing fund records from voucher payment statuses
+    // This fixes mismatches when payments were saved under a different wallet key
+    syncPaymentRecordsFromVoucherStatus(address);
+    deduplicatePayments(address);
+
     setAllTimeSummary(getFundSummary(address));
     setTodaySummary(getTodaysFundSummary(address));
     setRecentPayments(getRecentPayments(10, address));

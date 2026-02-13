@@ -1,5 +1,5 @@
 // HdevPayment API Integration for MTN Mobile Money
-import { addPaymentRecord, isVoucherAlreadyPaid, type PaymentMethod as FundPaymentMethod } from './fund-storage';
+import { addPaymentRecord, removePaymentRecord, type PaymentMethod as FundPaymentMethod } from './fund-storage';
 
 export interface PaymentRequest {
   phone: string;
@@ -154,33 +154,7 @@ export function getVoucherPaymentStatus(voucherId: string): VoucherPaymentData |
 export function markVoucherAsPaid(voucherId: string, transactionRef: string, method: 'cash' | 'momo', amount?: number, customerPhone?: string, walletAddress?: string): boolean {
   console.log('[markVoucherAsPaid] Called with:', { voucherId, transactionRef, method, amount, customerPhone });
   
-  // Check if already in fund storage (most reliable check for duplicate prevention)
-  if (isVoucherAlreadyPaid(voucherId)) {
-    console.warn(`Voucher ${voucherId} already in fund storage, preventing duplicate payment`);
-    return false;
-  }
-  
-  // Check localStorage payment status as well, but allow syncing to fund if needed
-  const existingStatus = getVoucherPaymentStatus(voucherId);
-  if (existingStatus?.status === 'paid') {
-    console.log(`Voucher ${voucherId} marked as paid in localStorage but not in fund storage - syncing...`);
-    
-    const syncAmount = existingStatus.amount || amount || 0;
-    if (syncAmount > 0) {
-      const fundMethod: FundPaymentMethod = (existingStatus.method || method) === 'cash' ? 'cash' : 'mobile_money';
-      const result = addPaymentRecord({
-        voucherId,
-        amount: syncAmount,
-        method: fundMethod,
-        customerPhone,
-        transactionRef: existingStatus.transactionRef || transactionRef,
-      }, walletAddress);
-      console.log('[markVoucherAsPaid] Sync addPaymentRecord result:', result);
-    }
-    return true;
-  }
-  
-  // Save to localStorage voucher status
+  // Always save to localStorage first so UI updates immediately
   saveVoucherPaymentStatus(voucherId, {
     status: 'paid',
     transactionRef,
@@ -189,9 +163,13 @@ export function markVoucherAsPaid(voucherId: string, transactionRef: string, met
     paidAt: new Date().toISOString(),
   });
   
-  // Add to fund tracker - always add if we have a valid amount
+  // Add to fund tracker
   const paymentAmount = amount || 0;
   if (paymentAmount > 0) {
+    // Remove any stale records first (from cancelled/retried payments)
+    removePaymentRecord(voucherId);
+    
+    // Add fresh payment record
     const fundMethod: FundPaymentMethod = method === 'cash' ? 'cash' : 'mobile_money';
     const result = addPaymentRecord({
       voucherId,
@@ -213,4 +191,23 @@ export function markVoucherAsCancelled(voucherId: string): void {
     status: 'cancelled',
     cancelledAt: new Date().toISOString(),
   });
+  // Remove any stale fund record so it doesn't block re-adding on retry
+  removePaymentRecord(voucherId);
+  // Notify fund tracker to refresh
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('gasswap_payment_added', { detail: { voucherId, cancelled: true } }));
+  }
+}
+
+export function resetVoucherPaymentStatus(voucherId: string): void {
+  // Remove payment status so the voucher can be retried
+  if (typeof window === 'undefined') return;
+  try {
+    // Clear localStorage payment status
+    localStorage.removeItem(`voucher_payment_${voucherId}`);
+    // Also clear from fund storage so payment can be retried
+    removePaymentRecord(voucherId);
+  } catch (e) {
+    console.error('Failed to reset voucher payment status:', e);
+  }
 }

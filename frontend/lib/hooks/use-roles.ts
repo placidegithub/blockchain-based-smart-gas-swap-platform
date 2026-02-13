@@ -12,6 +12,7 @@ export interface RolesState {
   isBranchStaff: boolean;
   isLoading: boolean;
   hasAnyRole: boolean;
+  hasError: boolean;
 }
 
 // Hook to get role constants directly from the contract (for verification)
@@ -48,39 +49,41 @@ export function useRoles(): RolesState {
   const rolesReady = isFetchedAdminRole && isFetchedStaffRole;
 
   // Check admin role on VoucherManager (admin always has role here from deploy)
-  const { data: isAdminOnVoucher, isLoading: isLoadingAdminV, isFetched: isFetchedAdminV } = useVoucherManagerRead(
+  const { data: isAdminOnVoucher, isLoading: isLoadingAdminV, isFetched: isFetchedAdminV, isError: isErrorAdminV } = useVoucherManagerRead(
     "hasRole",
     [adminRoleToUse, address],
     enabled && rolesReady
   );
 
   // Check admin role on GasSwapPlatform too
-  const { data: isAdminOnPlatform, isLoading: isLoadingAdminP, isFetched: isFetchedAdminP } = useGasSwapPlatformRead(
+  const { data: isAdminOnPlatform, isLoading: isLoadingAdminP, isFetched: isFetchedAdminP, isError: isErrorAdminP } = useGasSwapPlatformRead(
     "hasRole",
     [adminRoleToUse, address],
     enabled && rolesReady
   );
 
   // Check staff role on VoucherManager (existing staff have role here)
-  const { data: isStaffOnVoucher, isLoading: isLoadingStaffV, isFetched: isFetchedStaffV } = useVoucherManagerRead(
+  const { data: isStaffOnVoucher, isLoading: isLoadingStaffV, isFetched: isFetchedStaffV, isError: isErrorStaffV } = useVoucherManagerRead(
     "hasRole",
     [staffRoleToUse, address],
     enabled && rolesReady
   );
 
   // Check staff role on GasSwapPlatform (new staff get role here via add-branch form)
-  const { data: isStaffOnPlatform, isLoading: isLoadingStaffP, isFetched: isFetchedStaffP } = useGasSwapPlatformRead(
+  const { data: isStaffOnPlatform, isLoading: isLoadingStaffP, isFetched: isFetchedStaffP, isError: isErrorStaffP } = useGasSwapPlatformRead(
     "hasRole",
     [staffRoleToUse, address],
     enabled && rolesReady
   );
 
   // Check staff role on CompanyManager (assignBranchStaff always grants role here)
-  const { data: isStaffOnCompany, isLoading: isLoadingStaffC, isFetched: isFetchedStaffC } = useCompanyManagerRead(
+  const { data: isStaffOnCompany, isLoading: isLoadingStaffC, isFetched: isFetchedStaffC, isError: isErrorStaffC } = useCompanyManagerRead(
     "hasRole",
     [staffRoleToUse, address],
     enabled && rolesReady
   );
+
+  const hasError = isErrorAdminV || isErrorAdminP || isErrorStaffV || isErrorStaffP || isErrorStaffC;
 
   const isLoading = !rolesReady
     || isLoadingAdminV || isLoadingAdminP || isLoadingStaffV || isLoadingStaffP || isLoadingStaffC
@@ -88,6 +91,16 @@ export function useRoles(): RolesState {
 
   return useMemo(
     () => {
+      if (hasError) {
+        return {
+          isPlatformAdmin: false,
+          isBranchStaff: false,
+          isLoading: false,
+          hasAnyRole: false,
+          hasError: true,
+        };
+      }
+
       const isPlatformAdmin = Boolean(isAdminOnVoucher) || Boolean(isAdminOnPlatform);
       const isBranchStaff = Boolean(isStaffOnVoucher) || Boolean(isStaffOnPlatform) || Boolean(isStaffOnCompany);
       return {
@@ -95,9 +108,10 @@ export function useRoles(): RolesState {
         isBranchStaff,
         isLoading,
         hasAnyRole: isPlatformAdmin || isBranchStaff,
+        hasError: false,
       };
     },
-    [isAdminOnVoucher, isAdminOnPlatform, isStaffOnVoucher, isStaffOnPlatform, isStaffOnCompany, isLoading]
+    [isAdminOnVoucher, isAdminOnPlatform, isStaffOnVoucher, isStaffOnPlatform, isStaffOnCompany, isLoading, hasError]
   );
 }
 
@@ -130,50 +144,59 @@ export function useRequireRole(role: "admin" | "staff" | "admin-only" | "staff-o
   const roles = useRoles();
 
   if (roles.isLoading) {
-    return { isAuthorized: false, isLoading: true };
+    return { isAuthorized: false, isLoading: true, hasError: false };
+  }
+
+  if (roles.hasError) {
+    return { isAuthorized: false, isLoading: false, hasError: true };
   }
 
   // Strict role checks - each role accesses only their dashboard
   if (role === "admin" || role === "admin-only") {
     // Only platform admin can access admin pages
-    return { isAuthorized: roles.isPlatformAdmin, isLoading: false };
+    return { isAuthorized: roles.isPlatformAdmin, isLoading: false, hasError: false };
   }
 
   if (role === "staff-only") {
     // ONLY staff role (not admin) - strict separation
-    return { isAuthorized: roles.isBranchStaff && !roles.isPlatformAdmin, isLoading: false };
+    return { isAuthorized: roles.isBranchStaff && !roles.isPlatformAdmin, isLoading: false, hasError: false };
   }
 
   if (role === "staff") {
     // Staff role OR admin (for backwards compatibility)
-    return { isAuthorized: roles.isBranchStaff || roles.isPlatformAdmin, isLoading: false };
+    return { isAuthorized: roles.isBranchStaff || roles.isPlatformAdmin, isLoading: false, hasError: false };
   }
 
-  return { isAuthorized: false, isLoading: false };
+  return { isAuthorized: false, isLoading: false, hasError: false };
 }
 
 // Get the primary role for navigation purposes
-export function usePrimaryRole(): { primaryRole: "admin" | "staff" | "customer" | null; isLoading: boolean } {
+export function usePrimaryRole(): { primaryRole: "admin" | "staff" | "customer" | null; isLoading: boolean; hasError: boolean } {
   const { address, isConnected } = useAccount();
   const roles = useRoles();
 
   if (roles.isLoading) {
-    return { primaryRole: null, isLoading: true };
+    return { primaryRole: null, isLoading: true, hasError: false };
+  }
+
+  // Treat contract errors as loading — don't default to "customer"
+  if (roles.hasError) {
+    return { primaryRole: null, isLoading: false, hasError: true };
   }
 
   // If wallet is not connected, no role can be determined yet
   if (!isConnected || !address) {
-    return { primaryRole: null, isLoading: false };
+    return { primaryRole: null, isLoading: false, hasError: false };
   }
 
   // Priority: Admin > Staff > Customer
   if (roles.isPlatformAdmin) {
-    return { primaryRole: "admin", isLoading: false };
+    return { primaryRole: "admin", isLoading: false, hasError: false };
   }
 
   if (roles.isBranchStaff) {
-    return { primaryRole: "staff", isLoading: false };
+    return { primaryRole: "staff", isLoading: false, hasError: false };
   }
 
-  return { primaryRole: "customer", isLoading: false };
+  return { primaryRole: "customer", isLoading: false, hasError: false };
 }

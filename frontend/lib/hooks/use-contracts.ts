@@ -1,5 +1,6 @@
+import { useState, useEffect } from "react";
 import { useReadContract, useWriteContract, useChainId } from "wagmi";
-import { getContractAddresses } from "../contracts/addresses";
+import { getContractAddresses, fetchDeployedAddresses } from "../contracts/addresses";
 
 import VoucherManagerABI from "../contracts/abis/VoucherManager.json";
 import GasSwapPlatformABI from "../contracts/abis/GasSwapPlatform.json";
@@ -8,8 +9,24 @@ import CylinderRegistryABI from "../contracts/abis/CylinderRegistry.json";
 
 export function useContractAddresses() {
   const chainId = useChainId();
+  const [runtimeAddresses, setRuntimeAddresses] = useState<ReturnType<typeof getContractAddresses> | null>(null);
+
+  useEffect(() => {
+    // For localhost, fetch addresses at runtime to avoid stale cache after redeploy
+    if (chainId === 31337) {
+      fetchDeployedAddresses().then((addrs) => {
+        if (addrs) {
+          setRuntimeAddresses(addrs);
+        }
+      });
+    }
+  }, [chainId]);
 
   try {
+    // For localhost, prefer runtime-fetched addresses
+    if (chainId === 31337 && runtimeAddresses) {
+      return runtimeAddresses;
+    }
     return getContractAddresses(chainId);
   } catch {
     return null;
@@ -30,6 +47,7 @@ export function useVoucherManagerRead<TFunctionName extends string>(
     args,
     query: {
       enabled: enabled && !!addresses,
+      refetchInterval: 5000,
     },
   });
 }
@@ -71,6 +89,7 @@ export function useGasSwapPlatformRead<TFunctionName extends string>(
     args,
     query: {
       enabled: enabled && !!addresses,
+      refetchInterval: 5000,
     },
   });
 }
@@ -112,6 +131,7 @@ export function useCompanyManagerRead<TFunctionName extends string>(
     args,
     query: {
       enabled: enabled && !!addresses,
+      refetchInterval: 5000,
     },
   });
 }
@@ -153,6 +173,7 @@ export function useCylinderRegistryRead<TFunctionName extends string>(
     args,
     query: {
       enabled: enabled && !!addresses,
+      refetchInterval: 5000,
     },
   });
 }

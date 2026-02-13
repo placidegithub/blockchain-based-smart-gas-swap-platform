@@ -17,6 +17,7 @@ const steps = [
   { name: 'Setup test roles', script: 'scripts/setup-test-roles.js' },
   { name: 'Register cylinders for all branches', script: 'scripts/register-all-cylinders.js' },
   { name: 'Fix staff roles', script: 'scripts/fix-staff-roles.js' },
+  { name: 'Restore saved branch managers', script: 'scripts/restore-staff.js' },
 ];
 
 async function main() {
@@ -51,8 +52,21 @@ async function main() {
   console.log('   Staff1: 0x7099...79C8 (Account #1)');
   console.log('   Staff2: 0x3C44...93BC (Account #2)');
   console.log('\n   Frontend: cd frontend && npm run dev');
-  console.log('\n⚠️  Keep the Hardhat node running to preserve data!');
-  console.log('   If you restart the node, run this script again.\n');
+  console.log('\n' + '!'.repeat(60));
+  console.log('⚠️  IMPORTANT: HARDHAT DATA PERSISTENCE WARNING');
+  console.log('!'.repeat(60));
+  console.log('');
+  console.log('   Hardhat node is IN-MEMORY ONLY. Restarting it WIPES');
+  console.log('   ALL blockchain data (contracts, roles, cylinders).');
+  console.log('');
+  console.log('   After every `npx hardhat node` restart, you MUST:');
+  console.log('     1. Re-run: npm run setup:all');
+  console.log('     2. Hard-refresh the browser (Ctrl+Shift+R)');
+  console.log('');
+  console.log('   Note: Fund tracker data in localStorage is preserved');
+  console.log('   across restarts — only on-chain data is lost.');
+  console.log('');
+  console.log('!'.repeat(60) + '\n');
 }
 
 main();

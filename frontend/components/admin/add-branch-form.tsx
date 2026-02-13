@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { generateTestWallet, downloadWalletCredentials, type GeneratedWallet } from '@/lib/wallet-generator';
+import { registerStaff } from '@/lib/staff-registry';
 import { useWalletClient } from 'wagmi';
 import { parseEther } from 'viem';
 
@@ -222,6 +223,15 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
             type: 'success',
             text: `Branch "${branchName}" created, manager wallet assigned and funded with 10 ETH!`,
           });
+          registerStaff({
+            address: generatedWallet.address,
+            privateKey: generatedWallet.privateKey,
+            companyId: Number(selectedCompanyId),
+            branchId: Number(createdBranchId),
+            branchName,
+            district: selectedDistrictId ? RWANDA_DISTRICTS[parseInt(selectedDistrictId)]?.name : undefined,
+            createdAt: new Date().toISOString(),
+          });
         } catch {
           try {
             if (walletClient) {
@@ -233,6 +243,15 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
               setMessage({
                 type: 'success',
                 text: `Branch "${branchName}" created, manager wallet assigned and funded with 10 ETH!`,
+              });
+              registerStaff({
+                address: generatedWallet.address,
+                privateKey: generatedWallet.privateKey,
+                companyId: Number(selectedCompanyId),
+                branchId: Number(createdBranchId),
+                branchName,
+                district: selectedDistrictId ? RWANDA_DISTRICTS[parseInt(selectedDistrictId)]?.name : undefined,
+                createdAt: new Date().toISOString(),
               });
               return;
             }

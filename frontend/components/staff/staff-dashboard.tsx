@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { usePlatformStatsFormatted, useRoles, useCompanies, useBranches, useBranch, useRecentVouchers, useBranchStats, useCurrentStaffInfo, useCompanyInfo } from '@/lib/hooks';
+import { useRoles, useCompanies, useBranches, useBranch, useRecentVouchers, useCurrentStaffInfo } from '@/lib/hooks';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -10,16 +10,17 @@ import { InitiateSwapForm } from './initiate-swap-form';
 import { CompleteSwapForm } from './complete-swap-form';
 import { TransactionList, Transaction } from './transaction-list';
 import { FundTracker } from './fund-tracker';
+import { AnalyticsDashboard } from './analytics-dashboard';
 import { PaymentForm } from '@/components/payment';
 import { TransactionHistory } from '@/components/shared';
-import { getCylinderPrice, formatRWF, getVoucherPaymentStatus, markVoucherAsCancelled, markVoucherAsPaid } from '@/lib/payment';
-import { isVoucherAlreadyPaid } from '@/lib/fund-storage';
+import { getCylinderPrice, formatRWF, getVoucherPaymentStatus, markVoucherAsCancelled, markVoucherAsPaid, resetVoucherPaymentStatus } from '@/lib/payment';
+
 
 interface StaffDashboardProps {
   className?: string;
 }
 
-type ActiveView = 'dashboard' | 'new-deposit' | 'scan-voucher' | 'payment' | 'transaction-history';
+type ActiveView = 'dashboard' | 'new-deposit' | 'scan-voucher' | 'payment' | 'transaction-history' | 'analytics';
 
 interface PaymentContext {
   voucherId: bigint;
@@ -36,14 +37,11 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
   const [paymentStatusCache, setPaymentStatusCache] = useState<Map<string, 'unpaid' | 'paid' | 'cancelled'>>(new Map());
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const { stats, isLoading: isLoadingStats } = usePlatformStatsFormatted();
   const { isBranchStaff, isPlatformAdmin, isLoading: isLoadingRoles } = useRoles();
   const { companyIds } = useCompanies();
   const { branchIds } = useBranches(selectedCompanyId);
   const { transactions, isLoading: isLoadingTransactions, VoucherMappers } = useRecentVouchers(50);
-  const { deposits: branchDeposits, redemptions: branchRedemptions } = useBranchStats(selectedBranchId);
   const { branch: staffBranch, company: staffCompany, companyId: staffCompanyId, isLoading: isLoadingStaffInfo, isStaffAssigned } = useCurrentStaffInfo();
-  const { companyInfo, isLoading: isLoadingCompanyInfo } = useCompanyInfo(staffCompanyId);
 
   useEffect(() => {
     if (isStaffAssigned && !isPlatformAdmin && staffBranch && staffCompany) {
@@ -113,6 +111,19 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
       newCache.set(voucherIdStr, 'cancelled');
       return newCache;
     });
+  }, []);
+
+  const handleRetryPayment = useCallback((voucherId: bigint) => {
+    const voucherIdStr = voucherId.toString();
+    // Reset cancelled status so payment can be retried
+    resetVoucherPaymentStatus(voucherIdStr);
+    // Update cache to unpaid
+    setPaymentStatusCache(prev => {
+      const newCache = new Map(prev);
+      newCache.delete(voucherIdStr);
+      return newCache;
+    });
+    setRefreshKey(prev => prev + 1);
   }, []);
 
   const getPaymentStatus = useCallback((voucherId: bigint): 'unpaid' | 'paid' | 'cancelled' => {
@@ -207,32 +218,6 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
   }
 
   if (activeView === 'payment' && paymentContext) {
-    // Double-check payment status before showing payment form
-    const voucherIdStr = paymentContext.voucherId.toString();
-    if (isVoucherAlreadyPaid(voucherIdStr)) {
-      return (
-        <div className={cn('w-full', className)}>
-          <div className="mb-6">
-            <Button variant="ghost" onClick={() => { setActiveView('dashboard'); setPaymentContext(null); }}>
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to Dashboard
-            </Button>
-          </div>
-          <div className="flex flex-col items-center p-8">
-            <div className="rounded-full bg-green-500/20 p-4 mb-4">
-              <svg className="h-12 w-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-bold text-green-400 mb-2">Already Paid</h2>
-            <p className="text-muted-foreground">This voucher has already been paid.</p>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className={cn('w-full', className)}>
         <div className="mb-6">
@@ -280,12 +265,30 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
     );
   }
 
-  const totalDeposits = isStaffView
-    ? (selectedBranchId ? Number(branchDeposits) : Number(companyInfo?.totalDeposits ?? 0))
-    : (selectedBranchId ? Number(branchDeposits) : (stats?.totalVouchers ?? 0));
-  const totalRedemptions = isStaffView
-    ? (selectedBranchId ? Number(branchRedemptions) : Number(companyInfo?.totalRedemptions ?? 0))
-    : (selectedBranchId ? Number(branchRedemptions) : (stats?.completedSwaps ?? 0));
+  if (activeView === 'analytics') {
+    return (
+      <div className={cn('w-full', className)}>
+        <div className="mb-6">
+          <Button variant="ghost" onClick={() => setActiveView('dashboard')}>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Dashboard
+          </Button>
+        </div>
+        <AnalyticsDashboard
+          transactions={recentTransactions}
+          isLoading={isLoadingTransactions}
+        />
+      </div>
+    );
+  }
+
+  // Derive stats from actual filtered transactions so numbers match what the user sees
+  const totalDeposits = filteredTransactions.filter(tx => tx.type === 'deposit').length;
+  const totalRedemptions = filteredTransactions.filter(tx => tx.type === 'redemption').length;
+  const totalVouchers = filteredTransactions.length;
+  const totalCompletedSwaps = filteredTransactions.filter(tx => tx.status === 'redeemed').length;
 
   return (
     <div className={cn('w-full space-y-6', className)}>
@@ -341,7 +344,7 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title={isStaffView ? "Company Deposits" : (selectedBranchId ? "Branch Deposits" : "Total Deposits")}
-          value={isLoadingStats ? '-' : totalDeposits}
+          value={isLoadingTransactions ? '-' : totalDeposits}
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
@@ -351,7 +354,7 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
         />
         <StatCard
           title={isStaffView ? "Company Redemptions" : (selectedBranchId ? "Branch Redemptions" : "Total Redemptions")}
-          value={isLoadingStats ? '-' : totalRedemptions}
+          value={isLoadingTransactions ? '-' : totalRedemptions}
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
@@ -361,7 +364,7 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
         />
         <StatCard
           title={isStaffView ? "Company Vouchers" : "Total Vouchers"}
-          value={isLoadingStats ? '-' : (isStaffView ? Number(companyInfo?.totalDeposits ?? 0) : (stats?.totalVouchers ?? 0))}
+          value={isLoadingTransactions ? '-' : totalVouchers}
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
@@ -371,7 +374,7 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
         />
         <StatCard
           title={isStaffView ? "Company Swaps" : "Completed Swaps"}
-          value={isLoadingStats ? '-' : (isStaffView ? Number(companyInfo?.totalRedemptions ?? 0) : (stats?.completedSwaps ?? 0))}
+          value={isLoadingTransactions ? '-' : totalCompletedSwaps}
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -429,6 +432,16 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
                   View Reports
                 </Button>
               </Link>
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                onClick={() => setActiveView('analytics')}
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Analytics
+              </Button>
             </CardContent>
           </Card>
 
@@ -442,6 +455,7 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
             isLoading={isLoadingTransactions}
             onPayment={handlePayment}
             onCancelPayment={handleCancelPayment}
+            onRetryPayment={handleRetryPayment}
           />
         </div>
       </div>

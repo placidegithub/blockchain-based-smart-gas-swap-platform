@@ -79,3 +79,39 @@ export function getContractAddresses(chainId: number): ContractAddresses {
 export function getDeployerAddress(): string | undefined {
   return deployedAddresses?.deployer;
 }
+
+// Runtime address loading for dev - avoids stale bundled addresses after redeploy
+let runtimeAddresses: ContractAddresses | null = null;
+let fetchPromise: Promise<ContractAddresses | null> | null = null;
+
+export async function fetchDeployedAddresses(): Promise<ContractAddresses | null> {
+  if (runtimeAddresses) return runtimeAddresses;
+  if (typeof window === 'undefined') return null;
+
+  if (!fetchPromise) {
+    fetchPromise = fetch('/deployed-addresses.json', { cache: 'no-store' })
+      .then(res => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then((data: DeployedAddresses | null) => {
+        if (data) {
+          runtimeAddresses = {
+            gasSwapPlatform: data.gasSwapPlatform as `0x${string}`,
+            voucherManager: data.voucherManager as `0x${string}`,
+            companyManager: data.companyManager as `0x${string}`,
+            cylinderRegistry: data.cylinderRegistry as `0x${string}`,
+          };
+        }
+        return runtimeAddresses;
+      })
+      .catch(() => null);
+  }
+
+  return fetchPromise;
+}
+
+export function clearCachedAddresses(): void {
+  runtimeAddresses = null;
+  fetchPromise = null;
+}

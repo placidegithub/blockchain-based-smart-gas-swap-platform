@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useCompleteSwap, useVerifyVoucher, useCompany, useBranch, useCylinderTypeById, useAvailableCylindersAtBranch, useCylinderBySerial, useCurrentStaffInfo } from '@/lib/hooks';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,7 @@ export function CompleteSwapForm({ initialVoucherId, voucherId, onSuccess, onCan
   const [branchIdInput, setBranchIdInput] = useState('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isVerified, setIsVerified] = useState(false);
+  const redeemedIdsRef = useRef<Set<string>>(new Set());
 
   const { verification, isLoading: isVerifying, error: verifyError, refetch: refetchVerification } = useVerifyVoucher(voucherIdToVerify);
   const { completeSwap, isPending, isSuccess, isError, error, txHash, reset, isAuthorized, isLoadingRoles } = useCompleteSwap();
@@ -49,9 +50,12 @@ export function CompleteSwapForm({ initialVoucherId, voucherId, onSuccess, onCan
 
   useEffect(() => {
     if (isSuccess) {
+      if (voucherIdToVerify) {
+        redeemedIdsRef.current.add(voucherIdToVerify.toString());
+      }
       onSuccess?.();
     }
-  }, [isSuccess, onSuccess]);
+  }, [isSuccess, voucherIdToVerify, onSuccess]);
 
   const handleVerify = () => {
     if (!voucherIdInput.trim()) {
@@ -93,6 +97,12 @@ export function CompleteSwapForm({ initialVoucherId, voucherId, onSuccess, onCan
     e.preventDefault();
 
     if (!validateForm() || !voucherIdToVerify) return;
+
+    const idStr = voucherIdToVerify.toString();
+    if (redeemedIdsRef.current.has(idStr)) {
+      setFormErrors({ voucherId: 'This voucher has already been redeemed in this session' });
+      return;
+    }
 
     try {
       await completeSwap({
@@ -325,6 +335,17 @@ function VoucherVerificationResult({ verification, companyId, cylinderTypeId }: 
           </>
         )}
       </div>
+      {!verification.isValid && (
+        <p className="text-sm text-red-300 mb-3">
+          {verification.status === 'Redeemed'
+            ? 'This voucher has already been redeemed and cannot be used again.'
+            : verification.status === 'Expired'
+            ? 'This voucher has expired and can no longer be redeemed.'
+            : verification.status === 'Cancelled'
+            ? 'This voucher has been cancelled.'
+            : 'This voucher is not valid for redemption.'}
+        </p>
+      )}
       <div className="space-y-1 text-sm">
         <div className="flex justify-between">
           <span className="text-muted-foreground">Company:</span>

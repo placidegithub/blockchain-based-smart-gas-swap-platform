@@ -20,7 +20,7 @@ export function RoleGuard({
   showLoading = true,
 }: RoleGuardProps) {
   const { isConnected } = useWallet();
-  const { isAuthorized, isLoading } = useRequireRole(role);
+  const { isAuthorized, isLoading, hasError } = useRequireRole(role);
 
   if (!isConnected) {
     if (fallback) {
@@ -49,6 +49,47 @@ export function RoleGuard({
       <div className="flex flex-col items-center justify-center min-h-[400px] p-8">
         <Loader2 className="h-8 w-8 text-cyan-400 animate-spin mb-4" />
         <p className="text-slate-400">Verifying permissions...</p>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] p-8">
+        <div className="max-w-md w-full text-center">
+          <div className="w-16 h-16 rounded-full bg-yellow-500/10 flex items-center justify-center mx-auto mb-6">
+            <ShieldX className="h-8 w-8 text-yellow-400" />
+          </div>
+          <h2 className="text-xl font-semibold text-white mb-2">
+            Cannot Verify Permissions
+          </h2>
+          <p className="text-slate-400 mb-4">
+            Unable to connect to the smart contracts. This usually means:
+          </p>
+          <div className="w-full p-4 rounded-xl bg-slate-800/50 border border-white/10 text-left">
+            <ul className="text-sm text-slate-400 space-y-2">
+              <li className="flex items-start gap-2">
+                <span className="text-yellow-400">1.</span>
+                <span>Hardhat node was restarted — run <code className="text-cyan-400">npm run setup:all</code> to redeploy</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-yellow-400">2.</span>
+                <span>Then hard-refresh the browser (<code className="text-cyan-400">Ctrl+Shift+R</code>)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-yellow-400">3.</span>
+                <span>Make sure Hardhat node is running: <code className="text-cyan-400">npx hardhat node</code></span>
+              </li>
+            </ul>
+          </div>
+          <Button
+            variant="outline"
+            className="mt-6"
+            onClick={() => window.location.reload()}
+          >
+            Refresh Page
+          </Button>
+        </div>
       </div>
     );
   }

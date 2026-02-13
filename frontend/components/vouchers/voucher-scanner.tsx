@@ -25,6 +25,7 @@ export function VoucherScanner({ onScan, className }: VoucherScannerProps) {
 
   const scannerRef = React.useRef<Html5Qrcode | null>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const scannedIdsRef = React.useRef<Set<string>>(new Set());
 
   const stopCamera = React.useCallback(async () => {
     if (scannerRef.current) {
@@ -76,6 +77,12 @@ export function VoucherScanner({ onScan, className }: VoucherScannerProps) {
         },
         (decodedText: string) => {
           const voucherId = extractVoucherId(decodedText);
+          if (scannedIdsRef.current.has(voucherId)) {
+            setErrorMessage('This voucher has already been scanned');
+            stopCamera();
+            return;
+          }
+          scannedIdsRef.current.add(voucherId);
           setScannedResult(voucherId);
           onScan(voucherId);
           stopCamera();
@@ -120,6 +127,11 @@ export function VoucherScanner({ onScan, className }: VoucherScannerProps) {
       const extracted = extractVoucherId(manualInput.trim());
       const resolved = resolveVoucherId(extracted);
       if (resolved) {
+        if (scannedIdsRef.current.has(resolved)) {
+          setErrorMessage('This voucher has already been scanned');
+          return;
+        }
+        scannedIdsRef.current.add(resolved);
         setScannedResult(manualInput.trim());
         setErrorMessage('');
         onScan(resolved);

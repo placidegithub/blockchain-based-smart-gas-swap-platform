@@ -36,7 +36,7 @@ export default function DashboardPage() {
   const { company: staffCompany, isStaffAssigned } = useCurrentStaffInfo();
   
   // For staff/admin, get all platform vouchers
-  const { transactions: platformTransactions, voucherIds: platformVoucherIds, isLoading: isLoadingPlatform } = useRecentVouchers(50);
+  const { transactions: platformTransactions, voucherIds: platformVoucherIds, isLoading: isLoadingPlatform, VoucherMappers } = useRecentVouchers(50);
   const isStaffOrAdmin = primaryRole === 'staff' || primaryRole === 'admin';
   const isStaffOnly = primaryRole === 'staff' && isStaffAssigned;
   
@@ -78,6 +78,9 @@ export default function DashboardPage() {
           <span className="font-mono">{shortenAddress(address || '', 8)}</span>
         </p>
       </div>
+
+      {/* Hidden voucher mappers - needed to resolve transaction data (company names, etc.) */}
+      {isStaffOrAdmin && VoucherMappers}
 
       {/* Platform Vouchers Section - Only for Staff/Admin */}
       {isStaffOrAdmin && (
