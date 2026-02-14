@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePlatformStatsFormatted, useRecentVouchers, useRoles, useCompanies, useBranches, useBranch, useBranchStats } from '@/lib/hooks';
+import { usePlatformStatsFormatted, useRecentVouchers, useRoles, useCompanies, useBranches, useBranch, useBranchStats, useCurrentStaffInfo } from '@/lib/hooks';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn, shortenAddress, formatDate } from '@/lib/utils';
@@ -32,8 +32,9 @@ export default function ReportsPage() {
   const { branchIds } = useBranches(selectedCompanyId);
   const { transactions, isLoading: isLoadingTransactions, total, VoucherMappers } = useRecentVouchers(20);
   const { deposits: branchDeposits, redemptions: branchRedemptions } = useBranchStats(selectedBranchId);
+  const { branch: staffBranch, company: staffCompany, isStaffAssigned } = useCurrentStaffInfo();
 
-  const isAuthorized = isBranchStaff || isPlatformAdmin;
+  const isAuthorized = isBranchStaff && !isPlatformAdmin;
 
   const handlePayClick = (voucherId: bigint, customerPhone: string, cylinderType: string, customerName?: string) => {
     setPaymentContext({ voucherId, customerPhone, customerName, cylinderType });
@@ -115,6 +116,8 @@ export default function ReportsPage() {
             customerName={paymentContext.customerName || 'Customer'}
             customerPhone={paymentContext.customerPhone}
             cylinderType={paymentContext.cylinderType}
+            branchId={staffBranch?.id?.toString() || selectedBranchId?.toString()}
+            companyId={staffCompany?.id?.toString() || selectedCompanyId?.toString()}
             onPaymentComplete={handlePaymentComplete}
             onSkip={() => { setShowPaymentForm(false); setPaymentContext(null); }}
           />

@@ -141,7 +141,13 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
   }, [paymentStatusCache]);
   
   const filteredTransactions = !isPlatformAdmin && isStaffAssigned && staffCompany
-    ? transactions.filter((tx) => tx.companyName === staffCompany.name)
+    ? transactions.filter((tx) => {
+        if (tx.companyName !== staffCompany.name) return false;
+        if (staffBranch?.name && tx.branchName) {
+          return tx.branchName === staffBranch.name;
+        }
+        return true;
+      })
     : transactions;
 
   const recentTransactions: Transaction[] = filteredTransactions.map((tx) => ({
@@ -235,6 +241,8 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
             customerName={paymentContext.customerName || 'Customer'}
             customerPhone={paymentContext.customerPhone}
             cylinderType={paymentContext.cylinderType}
+            branchId={staffBranch?.id?.toString() || selectedBranchId?.toString()}
+            companyId={staffCompany?.id?.toString() || selectedCompanyId?.toString()}
             onPaymentComplete={handlePaymentComplete}
             onSkip={() => { setActiveView('dashboard'); setPaymentContext(null); }}
           />
@@ -256,10 +264,13 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
         </div>
         <TransactionHistory
           title={isStaffView ? `${staffCompany?.name} Transactions` : "All Transactions"}
-          description={isStaffView ? "Your company transaction history" : "Complete transaction history with payment management"}
+          description={isStaffView ? "Your branch transaction history" : "Complete transaction history with payment management"}
           limit={50}
           showPaymentActions={true}
           companyFilter={isStaffView ? staffCompany?.name : undefined}
+          branchFilter={isStaffView ? staffBranch?.name : undefined}
+          branchId={staffBranch?.id?.toString() || selectedBranchId?.toString()}
+          companyId={staffCompany?.id?.toString() || selectedCompanyId?.toString()}
         />
       </div>
     );
@@ -445,7 +456,10 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
             </CardContent>
           </Card>
 
-          <FundTracker />
+          <FundTracker 
+            branchId={staffBranch?.id?.toString() || selectedBranchId?.toString()}
+            companyId={staffCompany?.id?.toString() || selectedCompanyId?.toString()}
+          />
         </div>
 
         <div className="lg:col-span-2">

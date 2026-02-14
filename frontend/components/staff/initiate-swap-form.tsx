@@ -36,6 +36,11 @@ function detectCylinderTypeFromSerial(serial: string): bigint | null {
   return null;
 }
 
+function getCompanyCodeFromSerial(serial: string): string | null {
+  const match = serial.toUpperCase().match(/CYL-C(\d+)-/);
+  return match ? match[1] : null;
+}
+
 function isValidAddress(address: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(address);
 }
@@ -266,6 +271,11 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
 
     if (!cylinderSerial.trim()) {
       errors.cylinderSerial = 'Cylinder serial number is required';
+    } else if (selectedCompanyId && cylinderSerial.trim()) {
+      const serialCompanyCode = getCompanyCodeFromSerial(cylinderSerial);
+      if (serialCompanyCode && serialCompanyCode !== selectedCompanyId.toString().padStart(2, '0')) {
+        errors.cylinderSerial = `This cylinder belongs to Company ${serialCompanyCode}, not your company. Use a cylinder registered to your company.`;
+      }
     }
 
     if (!selectedCompanyId) {
@@ -426,6 +436,8 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
           customerName={customerName}
           customerPhone={customerPhone}
           cylinderType={getCylinderTypeLabel()}
+          branchId={staffBranch?.id?.toString() || selectedBranchId?.toString()}
+          companyId={staffCompany?.id?.toString() || selectedCompanyId?.toString()}
           onPaymentComplete={handlePaymentComplete}
           onSkip={handleSkipPayment}
         />
@@ -681,7 +693,7 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
                 </div>
                 <Input
                   variant="glow"
-                  placeholder="Enter cylinder serial number (e.g., CYL-C01-B001-12kg-001)"
+                  placeholder={`Enter cylinder serial number (e.g., CYL-C${(selectedCompanyId || 1n).toString().padStart(2, '0')}-B001-12kg-001)`}
                   value={cylinderSerial}
                   onChange={(e) => handleCylinderSerialChange(e.target.value)}
                   disabled={isPending}

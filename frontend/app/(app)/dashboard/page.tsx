@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Wallet, Ticket, HelpCircle, History, CheckCircle2, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { VoucherListByIds } from '@/components/vouchers';
@@ -29,18 +31,26 @@ const quickGuide = [
 ];
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { address, isConnected } = useWallet();
   const { primaryRole } = usePrimaryRole();
   const { activeVoucherIds, isLoading } = useActiveVouchers(address);
   const { voucherIds: allVoucherIds, isLoading: isLoadingAll } = useCustomerVouchers(address);
   const { company: staffCompany, isStaffAssigned } = useCurrentStaffInfo();
   
-  // For staff/admin, get all platform vouchers
+  // Redirect admin to their dedicated dashboard
+  useEffect(() => {
+    if (primaryRole === 'admin') {
+      router.replace('/admin');
+    }
+  }, [primaryRole, router]);
+
+  // For staff, get all platform vouchers
   const { transactions: platformTransactions, voucherIds: platformVoucherIds, isLoading: isLoadingPlatform, VoucherMappers } = useRecentVouchers(50);
-  const isStaffOrAdmin = primaryRole === 'staff' || primaryRole === 'admin';
+  const isStaff = primaryRole === 'staff';
   const isStaffOnly = primaryRole === 'staff' && isStaffAssigned;
   
-  // Filter platform vouchers by company for non-admin staff
+  // Filter platform vouchers by company for staff
   const filteredPlatformVoucherIds = isStaffOnly && staffCompany
     ? platformVoucherIds.filter((id) => {
         const tx = platformTransactions.find((t) => t.voucherId === id);
@@ -52,6 +62,14 @@ export default function DashboardPage() {
   const completedVoucherIds = allVoucherIds.filter(
     (id) => !activeVoucherIds.some((activeId) => activeId === id)
   );
+
+  if (primaryRole === 'admin') {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin h-8 w-8 border-2 border-cyan-500 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   if (!isConnected) {
     return (
@@ -80,10 +98,10 @@ export default function DashboardPage() {
       </div>
 
       {/* Hidden voucher mappers - needed to resolve transaction data (company names, etc.) */}
-      {isStaffOrAdmin && VoucherMappers}
+      {isStaff && VoucherMappers}
 
       {/* Platform Vouchers Section - Only for Staff/Admin */}
-      {isStaffOrAdmin && (
+      {isStaff && (
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -128,7 +146,7 @@ export default function DashboardPage() {
       )}
 
       {/* Personal Active Vouchers Section - Only for customers */}
-      {!isStaffOrAdmin && (
+      {!isStaff && (
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -173,7 +191,7 @@ export default function DashboardPage() {
       )}
 
       {/* Transaction History - Only for customers */}
-      {!isStaffOrAdmin && (
+      {!isStaff && (
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -218,7 +236,7 @@ export default function DashboardPage() {
       )}
 
       {/* Quick Guide - Only for customers */}
-      {!isStaffOrAdmin && (
+      {!isStaff && (
         <section>
           <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
             <HelpCircle className="h-5 w-5 text-cyan-400" />

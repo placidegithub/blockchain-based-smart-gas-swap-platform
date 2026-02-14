@@ -8,7 +8,7 @@ import { InitiateSwapForm } from '@/components/staff';
 
 export default function CreateVoucherPage() {
   return (
-    <RoleGuard role="staff">
+    <RoleGuard role="staff-only">
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Link href="/staff">

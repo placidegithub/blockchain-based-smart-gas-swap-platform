@@ -10,6 +10,9 @@ export interface PaymentRecord {
   timestamp: number;
   customerPhone?: string;
   transactionRef?: string;
+  branchId?: string;
+  companyId?: string;
+  managerAddress?: string;
 }
 
 export interface FundSummary {
@@ -21,11 +24,21 @@ export interface FundSummary {
   mobileMoneyCount: number;
 }
 
-function getPayments(walletAddress?: string): PaymentRecord[] {
+function buildStorageKey(walletAddress?: string, branchId?: string): string {
+  if (branchId) {
+    return `${FUND_STORAGE_KEY}_branch_${branchId}`;
+  }
+  if (walletAddress) {
+    return `${FUND_STORAGE_KEY}_${walletAddress.toLowerCase()}`;
+  }
+  return FUND_STORAGE_KEY;
+}
+
+function getPayments(walletAddress?: string, branchId?: string): PaymentRecord[] {
   if (typeof window === "undefined") return [];
   
   try {
-    const key = walletAddress ? `${FUND_STORAGE_KEY}_${walletAddress.toLowerCase()}` : FUND_STORAGE_KEY;
+    const key = buildStorageKey(walletAddress, branchId);
     const stored = localStorage.getItem(key);
     if (!stored) return [];
     return JSON.parse(stored);
@@ -35,11 +48,11 @@ function getPayments(walletAddress?: string): PaymentRecord[] {
   }
 }
 
-function savePayments(payments: PaymentRecord[], walletAddress?: string): void {
+function savePayments(payments: PaymentRecord[], walletAddress?: string, branchId?: string): void {
   if (typeof window === "undefined") return;
   
   try {
-    const key = walletAddress ? `${FUND_STORAGE_KEY}_${walletAddress.toLowerCase()}` : FUND_STORAGE_KEY;
+    const key = buildStorageKey(walletAddress, branchId);
     localStorage.setItem(key, JSON.stringify(payments));
   } catch (e) {
     console.error("Failed to save payments:", e);
@@ -86,7 +99,9 @@ export function removePaymentRecord(voucherId: string): boolean {
 }
 
 export function addPaymentRecord(record: Omit<PaymentRecord, "id" | "timestamp">, walletAddress?: string): PaymentRecord | null {
-  const payments = getPayments(walletAddress);
+  // Use branchId-scoped storage if branchId is provided
+  const branchId = record.branchId;
+  const payments = getPayments(walletAddress, branchId);
   
   // Prevent duplicate payments for the same voucher
   const existingPayment = payments.find(p => p.voucherId === record.voucherId);
@@ -102,7 +117,7 @@ export function addPaymentRecord(record: Omit<PaymentRecord, "id" | "timestamp">
   };
   
   payments.unshift(newRecord);
-  savePayments(payments, walletAddress);
+  savePayments(payments, walletAddress, branchId);
   
   // Dispatch custom event to notify components of payment update
   if (typeof window !== "undefined") {
@@ -112,12 +127,12 @@ export function addPaymentRecord(record: Omit<PaymentRecord, "id" | "timestamp">
   return newRecord;
 }
 
-export function getRecentPayments(limit: number = 20, walletAddress?: string): PaymentRecord[] {
-  return getPayments(walletAddress).slice(0, limit);
+export function getRecentPayments(limit: number = 20, walletAddress?: string, branchId?: string): PaymentRecord[] {
+  return getPayments(walletAddress, branchId).slice(0, limit);
 }
 
-export function getFundSummary(walletAddress?: string): FundSummary {
-  const payments = getPayments(walletAddress);
+export function getFundSummary(walletAddress?: string, branchId?: string): FundSummary {
+  const payments = getPayments(walletAddress, branchId);
   
   let totalAmount = 0;
   let cashAmount = 0;
@@ -146,8 +161,8 @@ export function getFundSummary(walletAddress?: string): FundSummary {
   };
 }
 
-export function getTodaysFundSummary(walletAddress?: string): FundSummary {
-  const payments = getPayments(walletAddress);
+export function getTodaysFundSummary(walletAddress?: string, branchId?: string): FundSummary {
+  const payments = getPayments(walletAddress, branchId);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStart = today.getTime();
@@ -190,9 +205,9 @@ export function formatRWF(amount: number): string {
   }).format(amount);
 }
 
-export function clearFundRecords(walletAddress?: string): void {
+export function clearFundRecords(walletAddress?: string, branchId?: string): void {
   if (typeof window === "undefined") return;
-  const key = walletAddress ? `${FUND_STORAGE_KEY}_${walletAddress.toLowerCase()}` : FUND_STORAGE_KEY;
+  const key = buildStorageKey(walletAddress, branchId);
   localStorage.removeItem(key);
   
   // Also clear all voucher payment status entries
@@ -209,10 +224,10 @@ export function clearFundRecords(walletAddress?: string): void {
   window.dispatchEvent(new CustomEvent('gasswap_payment_added', { detail: { cleared: true } }));
 }
 
-export function deduplicatePayments(walletAddress?: string): number {
+export function deduplicatePayments(walletAddress?: string, branchId?: string): number {
   if (typeof window === "undefined") return 0;
   
-  const payments = getPayments(walletAddress);
+  const payments = getPayments(walletAddress, branchId);
   const seen = new Set<string>();
   const uniquePayments: PaymentRecord[] = [];
   
@@ -225,8 +240,25 @@ export function deduplicatePayments(walletAddress?: string): number {
   
   const removed = payments.length - uniquePayments.length;
   if (removed > 0) {
-    savePayments(uniquePayments, walletAddress);
+    savePayments(uniquePayments, walletAddress, branchId);
     window.dispatchEvent(new CustomEvent('gasswap_payment_added', { detail: { deduplicated: removed } }));
+  }
+  
+  return removed;
+}
+
+// Remove payment records that don't belong to this branch
+// This cleans up records that were incorrectly synced from other branches
+export function cleanForeignBranchRecords(branchId: string): number {
+  if (typeof window === "undefined" || !branchId) return 0;
+  
+  const payments = getPayments(undefined, branchId);
+  const ownPayments = payments.filter(p => !p.branchId || p.branchId === branchId);
+  
+  const removed = payments.length - ownPayments.length;
+  if (removed > 0) {
+    savePayments(ownPayments, undefined, branchId);
+    window.dispatchEvent(new CustomEvent('gasswap_payment_added', { detail: { cleaned: removed } }));
   }
   
   return removed;
@@ -234,11 +266,11 @@ export function deduplicatePayments(walletAddress?: string): number {
 
 // Sync payment records from voucher payment status to fund storage
 // This fixes any inconsistencies between the two storage systems
-export function syncPaymentRecordsFromVoucherStatus(walletAddress?: string): number {
+export function syncPaymentRecordsFromVoucherStatus(walletAddress?: string, branchId?: string): number {
   if (typeof window === "undefined") return 0;
   
   let synced = 0;
-  const payments = getPayments(walletAddress);
+  const payments = getPayments(walletAddress, branchId);
   const existingVoucherIds = new Set(payments.map(p => p.voucherId));
   
   // Scan localStorage for voucher payment statuses
@@ -256,6 +288,9 @@ export function syncPaymentRecordsFromVoucherStatus(walletAddress?: string): num
         
         const data = JSON.parse(stored);
         if (data.status === 'paid' && data.amount && data.amount > 0) {
+        // When branchId is provided, only sync records that belong to this branch
+        if (branchId && data.branchId && data.branchId !== branchId) continue;
+
           // Add to fund storage
           const method: PaymentMethod = data.method === 'cash' ? 'cash' : 'mobile_money';
           const newRecord: PaymentRecord = {
@@ -265,6 +300,8 @@ export function syncPaymentRecordsFromVoucherStatus(walletAddress?: string): num
             method,
             timestamp: data.paidAt ? new Date(data.paidAt).getTime() : Date.now(),
             transactionRef: data.transactionRef,
+            branchId: data.branchId,
+            companyId: data.companyId,
           };
           
           payments.unshift(newRecord);
@@ -278,7 +315,7 @@ export function syncPaymentRecordsFromVoucherStatus(walletAddress?: string): num
   }
   
   if (synced > 0) {
-    savePayments(payments, walletAddress);
+    savePayments(payments, walletAddress, branchId);
     // Dispatch event to notify components
     window.dispatchEvent(new CustomEvent('gasswap_payment_added', { detail: { synced } }));
     console.log(`Synced ${synced} payment records to fund storage`);

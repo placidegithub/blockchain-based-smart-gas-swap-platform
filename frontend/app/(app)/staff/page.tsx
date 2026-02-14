@@ -5,7 +5,7 @@ import { StaffDashboard } from '@/components/staff';
 
 export default function StaffPage() {
   return (
-    <RoleGuard role="staff">
+    <RoleGuard role="staff-only">
       <StaffDashboard />
     </RoleGuard>
   );

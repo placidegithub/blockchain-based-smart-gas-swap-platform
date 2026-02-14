@@ -46,7 +46,10 @@ describe("VoucherManager", function () {
         companyId,
         cylinderTypeId,
         branchId,
-        cylinderId
+        cylinderId,
+        "Test Customer",
+        "test@example.com",
+        "+250780000000"
       );
 
       const receipt = await tx.wait();
@@ -70,7 +73,10 @@ describe("VoucherManager", function () {
           companyId,
           cylinderTypeId,
           branchId,
-          cylinderId
+          cylinderId,
+          "Test Customer",
+          "test@example.com",
+          "+250780000000"
         )
       ).to.emit(voucherManager, "VoucherCreated");
     });
@@ -79,7 +85,8 @@ describe("VoucherManager", function () {
       await expect(
         voucherManager.connect(customer).createVoucher(
           customer.address,
-          1, 2, 1, 100
+          1, 2, 1, 100,
+          "Test Customer", "test@example.com", "+250780000000"
         )
       ).to.be.reverted;
     });
@@ -88,17 +95,20 @@ describe("VoucherManager", function () {
       await expect(
         voucherManager.connect(staff).createVoucher(
           ethers.ZeroAddress,
-          1, 2, 1, 100
+          1, 2, 1, 100,
+          "Test Customer", "test@example.com", "+250780000000"
         )
       ).to.be.revertedWith("Invalid customer address");
     });
 
     it("Should track customer vouchers", async function () {
       await voucherManager.connect(staff).createVoucher(
-        customer.address, 1, 2, 1, 100
+        customer.address, 1, 2, 1, 100,
+        "Test Customer", "test@example.com", "+250780000000"
       );
       await voucherManager.connect(staff).createVoucher(
-        customer.address, 1, 2, 1, 101
+        customer.address, 1, 2, 1, 101,
+        "Test Customer", "test@example.com", "+250780000000"
       );
 
       const vouchers = await voucherManager.getCustomerVouchers(customer.address);

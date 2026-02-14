@@ -12,15 +12,18 @@ import {
   syncPaymentRecordsFromVoucherStatus,
   deduplicatePayments,
   clearFundRecords,
+  cleanForeignBranchRecords,
   FundSummary,
   PaymentRecord,
 } from '@/lib/fund-storage';
 
 interface FundTrackerProps {
   className?: string;
+  branchId?: string;
+  companyId?: string;
 }
 
-export function FundTracker({ className }: FundTrackerProps) {
+export function FundTracker({ className, branchId, companyId }: FundTrackerProps) {
   const { address } = useAccount();
   const [allTimeSummary, setAllTimeSummary] = useState<FundSummary | null>(null);
   const [todaySummary, setTodaySummary] = useState<FundSummary | null>(null);
@@ -28,22 +31,29 @@ export function FundTracker({ className }: FundTrackerProps) {
   const [viewMode, setViewMode] = useState<'today' | 'all'>('today');
 
   const refreshData = useCallback(() => {
-    // Sync any missing fund records from voucher payment statuses
-    // This fixes mismatches when payments were saved under a different wallet key
-    syncPaymentRecordsFromVoucherStatus(address);
-    deduplicatePayments(address);
+    syncPaymentRecordsFromVoucherStatus(address, branchId);
+    deduplicatePayments(address, branchId);
 
-    setAllTimeSummary(getFundSummary(address));
-    setTodaySummary(getTodaysFundSummary(address));
-    setRecentPayments(getRecentPayments(10, address));
-  }, [address]);
+    setAllTimeSummary(getFundSummary(address, branchId));
+    setTodaySummary(getTodaysFundSummary(address, branchId));
+    setRecentPayments(getRecentPayments(10, address, branchId));
+  }, [address, branchId]);
+
+  // One-time cleanup of records that don't belong to this branch
+  useEffect(() => {
+    if (branchId) cleanForeignBranchRecords(branchId);
+  }, [branchId]);
 
   useEffect(() => {
     refreshData();
     
     const interval = setInterval(refreshData, 5000);
     
-    const storageKey = address ? `gasswap_collected_funds_${address.toLowerCase()}` : 'gasswap_collected_funds';
+    const storageKey = branchId 
+      ? `gasswap_collected_funds_branch_${branchId}`
+      : address 
+        ? `gasswap_collected_funds_${address.toLowerCase()}` 
+        : 'gasswap_collected_funds';
     const handleStorage = (e: StorageEvent) => {
       if (e.key === storageKey) {
         refreshData();
@@ -62,7 +72,7 @@ export function FundTracker({ className }: FundTrackerProps) {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('gasswap_payment_added', handlePaymentAdded);
     };
-  }, [refreshData, address]);
+  }, [refreshData, address, branchId]);
 
   const summary = viewMode === 'today' ? todaySummary : allTimeSummary;
 
@@ -72,13 +82,15 @@ export function FundTracker({ className }: FundTrackerProps) {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-lg">Fund Tracker</CardTitle>
-            <CardDescription>Collected payments</CardDescription>
+            <CardDescription>
+              {branchId ? `Branch #${branchId} collected payments` : 'Collected payments'}
+            </CardDescription>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
                 if (confirm('Clear all fund records?')) {
-                  clearFundRecords(address);
+                  clearFundRecords(address, branchId);
                   refreshData();
                 }
               }}

@@ -127,6 +127,8 @@ export interface VoucherPaymentData {
   amount?: number;
   paidAt?: string;
   cancelledAt?: string;
+  branchId?: string;
+  companyId?: string;
 }
 
 export function saveVoucherPaymentStatus(voucherId: string, data: VoucherPaymentData): void {
@@ -151,7 +153,7 @@ export function getVoucherPaymentStatus(voucherId: string): VoucherPaymentData |
   return null;
 }
 
-export function markVoucherAsPaid(voucherId: string, transactionRef: string, method: 'cash' | 'momo', amount?: number, customerPhone?: string, walletAddress?: string): boolean {
+export function markVoucherAsPaid(voucherId: string, transactionRef: string, method: 'cash' | 'momo', amount?: number, customerPhone?: string, walletAddress?: string, branchId?: string, companyId?: string): boolean {
   console.log('[markVoucherAsPaid] Called with:', { voucherId, transactionRef, method, amount, customerPhone });
   
   // Always save to localStorage first so UI updates immediately
@@ -161,6 +163,8 @@ export function markVoucherAsPaid(voucherId: string, transactionRef: string, met
     method,
     amount,
     paidAt: new Date().toISOString(),
+    branchId,
+    companyId,
   });
   
   // Add to fund tracker
@@ -177,6 +181,9 @@ export function markVoucherAsPaid(voucherId: string, transactionRef: string, met
       method: fundMethod,
       customerPhone,
       transactionRef,
+      branchId,
+      companyId,
+      managerAddress: walletAddress,
     }, walletAddress);
     console.log('[markVoucherAsPaid] addPaymentRecord result:', result);
   } else {

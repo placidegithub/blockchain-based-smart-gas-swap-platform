@@ -16,6 +16,9 @@ interface TransactionHistoryProps {
   limit?: number;
   showPaymentActions?: boolean;
   companyFilter?: string;
+  branchFilter?: string;
+  branchId?: string;
+  companyId?: string;
   className?: string;
 }
 
@@ -25,12 +28,22 @@ export function TransactionHistory({
   limit = 20,
   showPaymentActions = false,
   companyFilter,
+  branchFilter,
+  branchId,
+  companyId,
   className,
 }: TransactionHistoryProps) {
   const { transactions: allTransactions, isLoading, VoucherMappers } = useRecentVouchers(limit);
-  const transactions = companyFilter
-    ? allTransactions.filter((tx) => tx.companyName === companyFilter)
-    : allTransactions;
+  const transactions = (() => {
+    let filtered = allTransactions;
+    if (companyFilter) {
+      filtered = filtered.filter((tx) => tx.companyName === companyFilter);
+    }
+    if (branchFilter) {
+      filtered = filtered.filter((tx) => tx.branchName === branchFilter);
+    }
+    return filtered;
+  })();
   const [paymentStatusCache, setPaymentStatusCache] = useState<Map<string, 'unpaid' | 'paid' | 'cancelled'>>(new Map());
   const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
   const [paymentModal, setPaymentModal] = useState<{
@@ -142,6 +155,8 @@ export function TransactionHistory({
             customerName={paymentModal.customerName}
             customerPhone={paymentModal.customerPhone}
             cylinderType={paymentModal.cylinderType}
+            branchId={branchId}
+            companyId={companyId}
             onPaymentComplete={handlePaymentComplete}
             onSkip={() => setPaymentModal(null)}
           />

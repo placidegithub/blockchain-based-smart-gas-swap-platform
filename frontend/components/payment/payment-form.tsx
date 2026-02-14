@@ -20,6 +20,8 @@ interface PaymentFormProps {
   customerName: string;
   customerPhone: string;
   cylinderType: string;
+  branchId?: string;
+  companyId?: string;
   onPaymentComplete?: (transactionRef: string) => void;
   onSkip?: () => void;
   className?: string;
@@ -33,6 +35,8 @@ export function PaymentForm({
   customerName,
   customerPhone,
   cylinderType,
+  branchId,
+  companyId,
   onPaymentComplete,
   onSkip,
   className,
@@ -59,7 +63,7 @@ export function PaymentForm({
           setPaymentStatus('completed');
           clearInterval(intervalId);
           // Save to localStorage
-          markVoucherAsPaid(voucherId, transactionRef, 'momo', amount, customerPhone, address);
+          markVoucherAsPaid(voucherId, transactionRef, 'momo', amount, customerPhone, address, branchId, companyId);
           onPaymentComplete?.(transactionRef);
         } else if (result.status === 'failed' || result.status === 'cancelled') {
           setPaymentStatus('failed');
@@ -79,7 +83,7 @@ export function PaymentForm({
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [paymentStatus, transactionRef, statusCheckCount, onPaymentComplete, voucherId, amount, customerPhone]);
+  }, [paymentStatus, transactionRef, statusCheckCount, onPaymentComplete, voucherId, amount, customerPhone, branchId, companyId]);
 
   const handleCashPayment = () => {
     console.log('[handleCashPayment] voucherId:', voucherId, 'cylinderType:', cylinderType, 'amount:', amount);
@@ -87,7 +91,7 @@ export function PaymentForm({
     setTransactionRef(ref);
     setPaymentStatus('completed');
     // Save to localStorage and fund tracker
-    const result = markVoucherAsPaid(voucherId, ref, 'cash', amount, customerPhone, address);
+    const result = markVoucherAsPaid(voucherId, ref, 'cash', amount, customerPhone, address, branchId, companyId);
     console.log('[handleCashPayment] markVoucherAsPaid result:', result);
     onPaymentComplete?.(ref);
   };

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useVoucherManagerRead } from "./use-contracts";
 import { Voucher, VoucherStatus } from "./use-vouchers";
 import { useCylinderType, useCylinder } from "./use-cylinders";
@@ -222,13 +222,26 @@ function VoucherTransactionMapper({
   const { company } = useCompany(voucher?.companyId);
   const { branch } = useBranch(voucher?.sourceBranchId);
   const { cylinder } = useCylinder(voucher?.depositedCylinderId);
+  const onTransactionRef = useRef(onTransaction);
+  onTransactionRef.current = onTransaction;
+  const lastEmittedRef = useRef<string>("");
+
+  // Use stable primitive values as dependencies instead of object references
+  const voucherStatus = voucher?.status;
+  const voucherCustomer = voucher?.customer;
+  const voucherCreatedAt = voucher?.createdAt?.toString();
+  const voucherRedeemedAt = voucher?.redeemedAt?.toString();
+  const cylinderTypeName = cylinderType?.sizeName;
+  const customerName = customerInfo?.name;
+  const customerEmail = customerInfo?.email;
+  const customerPhone = customerInfo?.phoneNumber;
+  const companyName = company?.name;
+  const branchName = branch?.name;
+  const cylinderSerial = cylinder?.serialNumber;
 
   useEffect(() => {
     if (voucher && !isLoading) {
-      const isRedeemed = voucher.status === VoucherStatus.REDEEMED;
-      
-      // Get cylinder serial from blockchain data
-      const cylinderSerial = cylinder?.serialNumber;
+      const isRedeemed = voucherStatus === VoucherStatus.REDEEMED;
       
       // Try to get condition from localStorage (using cylinder serial as key)
       let cylinderCondition: "empty" | "full" | undefined;
@@ -244,26 +257,31 @@ function VoucherTransactionMapper({
         }
       }
       
+      // Build a fingerprint to avoid emitting the same data repeatedly
+      const fingerprint = `${voucherId}-${voucherStatus}-${cylinderTypeName}-${customerName}-${companyName}-${branchName}-${cylinderSerial}`;
+      if (fingerprint === lastEmittedRef.current) return;
+      lastEmittedRef.current = fingerprint;
+
       const tx: RecentTransaction = {
         voucherId: voucher.id,
         type: isRedeemed ? "redemption" : "deposit",
-        customerAddress: voucher.customer,
-        customerName: customerInfo?.name,
-        customerEmail: customerInfo?.email,
-        customerPhone: customerInfo?.phoneNumber,
-        cylinderType: cylinderType?.sizeName ?? `Type ${voucher.cylinderTypeId}`,
+        customerAddress: voucherCustomer!,
+        customerName,
+        customerEmail,
+        customerPhone,
+        cylinderType: cylinderTypeName ?? `Type ${voucher.cylinderTypeId}`,
         cylinderSerial,
         cylinderCondition,
-        companyName: company?.name,
-        branchName: branch?.name,
+        companyName,
+        branchName,
         timestamp: isRedeemed
-          ? Number(voucher.redeemedAt)
-          : Number(voucher.createdAt),
-        status: mapVoucherStatus(voucher.status),
+          ? Number(voucherRedeemedAt)
+          : Number(voucherCreatedAt),
+        status: mapVoucherStatus(voucherStatus!),
       };
-      onTransaction(tx);
+      onTransactionRef.current(tx);
     }
-  }, [voucher, cylinderType, customerInfo, company, branch, cylinder, isLoading, onTransaction]);
+  }, [voucher, isLoading, voucherId, voucherStatus, voucherCustomer, voucherCreatedAt, voucherRedeemedAt, cylinderTypeName, customerName, customerEmail, customerPhone, companyName, branchName, cylinderSerial]);
 
   return null;
 }

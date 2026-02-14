@@ -127,7 +127,10 @@ describe("GasSwapPlatform", function () {
       const tx = await gasSwapPlatform.connect(staff).initiateSwap(
         customer.address,
         "CYL-TEST-001",
-        1
+        1,
+        "Test Customer",
+        "test@example.com",
+        "+250780000000"
       );
       await tx.wait();
 
@@ -140,7 +143,10 @@ describe("GasSwapPlatform", function () {
         gasSwapPlatform.connect(staff).initiateSwap(
           customer.address,
           "CYL-TEST-001",
-          1
+          1,
+          "Test Customer",
+          "test@example.com",
+          "+250780000000"
         )
       ).to.emit(gasSwapPlatform, "SwapInitiated");
     });
@@ -150,7 +156,10 @@ describe("GasSwapPlatform", function () {
         gasSwapPlatform.connect(staff).initiateSwap(
           customer.address,
           "INVALID-CYL",
-          1
+          1,
+          "Test Customer",
+          "test@example.com",
+          "+250780000000"
         )
       ).to.be.revertedWith("Cylinder not found");
     });
@@ -160,7 +169,10 @@ describe("GasSwapPlatform", function () {
         gasSwapPlatform.connect(customer).initiateSwap(
           customer.address,
           "CYL-TEST-001",
-          1
+          1,
+          "Test Customer",
+          "test@example.com",
+          "+250780000000"
         )
       ).to.be.reverted;
     });
@@ -171,7 +183,10 @@ describe("GasSwapPlatform", function () {
         await gasSwapPlatform.connect(staff).initiateSwap(
           customer.address,
           "CYL-TEST-001",
-          1
+          1,
+          "Test Customer",
+          "test@example.com",
+          "+250780000000"
         );
 
         // Register a second cylinder for redemption

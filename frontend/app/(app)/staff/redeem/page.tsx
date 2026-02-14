@@ -332,7 +332,7 @@ export default function RedeemVoucherPage() {
   const isVoucherValid = verification?.isValid && voucher;
 
   return (
-    <RoleGuard role="staff">
+    <RoleGuard role="staff-only">
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Link href="/staff">
