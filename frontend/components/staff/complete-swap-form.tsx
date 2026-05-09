@@ -75,10 +75,6 @@ export function CompleteSwapForm({ initialVoucherId, voucherId, onSuccess, onCan
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!newCylinderSerial.trim()) {
-      errors.newCylinderSerial = 'New cylinder serial number is required';
-    }
-
     if (!branchIdInput.trim()) {
       errors.branchId = 'Branch ID is required';
     } else {
@@ -107,7 +103,7 @@ export function CompleteSwapForm({ initialVoucherId, voucherId, onSuccess, onCan
     try {
       await completeSwap({
         voucherId: voucherIdToVerify,
-        newCylinderSerialNumber: newCylinderSerial,
+        newCylinderSerialNumber: newCylinderSerial.trim() || undefined,
         branchId: BigInt(branchIdInput),
       });
     } catch (err) {
@@ -163,7 +159,7 @@ export function CompleteSwapForm({ initialVoucherId, voucherId, onSuccess, onCan
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">New Cylinder:</span>
-              <span className="font-mono text-cyan-400">{newCylinderSerial}</span>
+              <span className="font-mono text-cyan-400">{newCylinderSerial || 'Not recorded'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Transaction:</span>
@@ -232,10 +228,12 @@ export function CompleteSwapForm({ initialVoucherId, voucherId, onSuccess, onCan
           {isVerified && verification?.isValid && (
             <>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">New Cylinder Serial Number</label>
+                <label className="text-sm font-medium text-foreground">
+                  New Cylinder Serial Number <span className="text-muted-foreground font-normal">(optional)</span>
+                </label>
                 <Input
                   variant="glow"
-                  placeholder="Enter serial of the filled cylinder"
+                  placeholder="Optional serial of the filled cylinder"
                   value={newCylinderSerial}
                   onChange={(e) => setNewCylinderSerial(e.target.value)}
                   error={formErrors.newCylinderSerial}

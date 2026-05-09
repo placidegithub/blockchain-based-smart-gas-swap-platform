@@ -1,6 +1,7 @@
 export const CHAIN_IDS = {
   POLYGON_MAINNET: 137,
   POLYGON_MUMBAI: 80001,
+  SEPOLIA: 11155111,
   LOCALHOST: 31337,
 } as const;
 
@@ -49,6 +50,19 @@ const getLocalhostAddresses = (): ContractAddresses => {
   return DEFAULT_LOCALHOST_ADDRESSES;
 };
 
+const getDeployedAddresses = (): ContractAddresses | null => {
+  if (!deployedAddresses) {
+    return null;
+  }
+
+  return {
+    gasSwapPlatform: deployedAddresses.gasSwapPlatform as `0x${string}`,
+    voucherManager: deployedAddresses.voucherManager as `0x${string}`,
+    companyManager: deployedAddresses.companyManager as `0x${string}`,
+    cylinderRegistry: deployedAddresses.cylinderRegistry as `0x${string}`,
+  };
+};
+
 export const CONTRACT_ADDRESSES: Record<SupportedChainId, ContractAddresses> = {
   [CHAIN_IDS.POLYGON_MAINNET]: {
     gasSwapPlatform: "0x0000000000000000000000000000000000000001",
@@ -62,10 +76,21 @@ export const CONTRACT_ADDRESSES: Record<SupportedChainId, ContractAddresses> = {
     companyManager: "0x0000000000000000000000000000000000000013",
     cylinderRegistry: "0x0000000000000000000000000000000000000014",
   },
+  [CHAIN_IDS.SEPOLIA]: {
+    gasSwapPlatform: "0x0000000000000000000000000000000000000021",
+    voucherManager: "0x0000000000000000000000000000000000000022",
+    companyManager: "0x0000000000000000000000000000000000000023",
+    cylinderRegistry: "0x0000000000000000000000000000000000000024",
+  },
   [CHAIN_IDS.LOCALHOST]: getLocalhostAddresses(),
 };
 
 export function getContractAddresses(chainId: number): ContractAddresses {
+  if (deployedAddresses && deployedAddresses.chainId === chainId) {
+    const addresses = getDeployedAddresses();
+    if (addresses) return addresses;
+  }
+
   if (chainId === CHAIN_IDS.LOCALHOST) {
     return getLocalhostAddresses();
   }

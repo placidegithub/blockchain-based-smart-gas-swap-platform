@@ -18,13 +18,6 @@ export function RoleRedirect({ children }: RoleRedirectProps) {
   useEffect(() => {
     if (!isConnected || isLoading || hasError || !primaryRole) return;
 
-    // Define role-based default paths
-    const roleDefaultPaths: Record<string, string> = {
-      admin: '/admin',
-      staff: '/staff',
-      customer: '/dashboard',
-    };
-
     // Define restricted paths for each role
     const roleRestrictedPaths: Record<string, string[]> = {
       admin: ['/staff'], // Admin should not access staff pages
@@ -32,13 +25,24 @@ export function RoleRedirect({ children }: RoleRedirectProps) {
       customer: ['/admin', '/staff'], // Customers should not access admin or staff
     };
 
+    const roleDefaultPaths: Record<string, string> = {
+      admin: '/admin',
+      staff: '/staff',
+      customer: '/dashboard',
+    };
+
     // Check if current path is restricted for this role
     const restrictedPaths = roleRestrictedPaths[primaryRole] || [];
     const isRestricted = restrictedPaths.some(path => pathname.startsWith(path));
+    const defaultPath = roleDefaultPaths[primaryRole] || '/dashboard';
+
+    if (pathname === '/dashboard' && primaryRole !== 'customer') {
+      router.replace(defaultPath);
+      return;
+    }
 
     if (isRestricted) {
       // Redirect to role's default page
-      const defaultPath = roleDefaultPaths[primaryRole] || '/dashboard';
       router.replace(defaultPath);
     }
     // Note: Staff and admin can access /dashboard to view customer perspective

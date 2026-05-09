@@ -1,5 +1,5 @@
 import { http, createConfig, createStorage } from "wagmi";
-import { polygon, polygonMumbai } from "wagmi/chains";
+import { polygon, polygonMumbai, sepolia } from "viem/chains";
 import { injected } from "wagmi/connectors";
 import { localhost } from "./chains";
 
@@ -10,7 +10,7 @@ const noopStorage = {
 };
 
 export const wagmiConfig = createConfig({
-  chains: [localhost, polygonMumbai, polygon],
+  chains: [localhost, sepolia, polygonMumbai, polygon],
   connectors: [injected()],
   ssr: true,
   storage: createStorage({
@@ -22,6 +22,9 @@ export const wagmiConfig = createConfig({
       timeout: 10000,
       retryCount: 2,
     }),
+    [sepolia.id]: http("https://ethereum-sepolia-rpc.publicnode.com", {
+      timeout: 10000,
+    }),
     [polygonMumbai.id]: http(undefined, {
       timeout: 10000,
     }),
@@ -30,7 +33,6 @@ export const wagmiConfig = createConfig({
     }),
   },
 });
-
 declare module "wagmi" {
   interface Register {
     config: typeof wagmiConfig;

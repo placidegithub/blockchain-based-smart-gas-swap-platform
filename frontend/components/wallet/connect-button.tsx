@@ -5,7 +5,7 @@ import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { Wallet, ChevronDown, LogOut, Copy, Check, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { shortenAddress } from '@/lib/utils';
-import { getChainById, supportedChains, localhost } from '@/lib/chains';
+import { getChainById, supportedChains, defaultChain } from '@/lib/chains';
 
 export function ConnectButton() {
   const { address, isConnected, chainId } = useAccount();
@@ -35,7 +35,7 @@ export function ConnectButton() {
   };
 
   const handleSwitchNetwork = () => {
-    switchChain({ chainId: localhost.id });
+    switchChain({ chainId: defaultChain.id });
   };
 
   if (!isConnected) {
@@ -179,7 +179,7 @@ export function ConnectButton() {
                   <div className="w-4 h-4 rounded-full border-2 border-yellow-400 flex items-center justify-center">
                     <span className="text-xs">!</span>
                   </div>
-                  <span>{isSwitching ? 'Switching...' : 'Switch to Localhost'}</span>
+                  <span>{isSwitching ? 'Switching...' : `Switch to ${defaultChain.name}`}</span>
                 </button>
               )}
             </div>

@@ -81,6 +81,7 @@ export default function RedeemVoucherPage() {
   const [notificationStatus, setNotificationStatus] = useState<{
     sent: boolean;
     message: string;
+    warning?: boolean;
   } | null>(null);
   const [notificationSent, setNotificationSent] = useState(false);
 
@@ -204,7 +205,7 @@ export default function RedeemVoucherPage() {
           destinationBranchName: destinationBranch.name,
           destinationDistrict: destinationDistrictName,
           cylinderType: cylinderTypeLabel,
-          newCylinderSerial: newCylinderSerial,
+          newCylinderSerial: newCylinderSerial || 'Not recorded',
           redeemedAt: new Date().toISOString(),
           txHash: txHash,
           serviceFee: serviceFeeFormatted,
@@ -215,9 +216,10 @@ export default function RedeemVoucherPage() {
       const result = await response.json();
       setNotificationStatus({
         sent: result.success,
-        message: result.success
+        warning: Boolean(result.warning),
+        message: result.message || (result.success
           ? 'Customer has been notified via SMS and Email'
-          : 'Failed to send notifications',
+          : 'Failed to send notifications'),
       });
     } catch {
       setNotificationStatus({
@@ -303,10 +305,6 @@ export default function RedeemVoucherPage() {
       }
     }
 
-    if (!newCylinderSerial.trim()) {
-      errors.cylinderSerial = 'New cylinder serial number is required';
-    }
-
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -319,7 +317,7 @@ export default function RedeemVoucherPage() {
     try {
       await completeSwap({
         voucherId: voucherIdBigInt,
-        newCylinderSerialNumber: newCylinderSerial,
+        newCylinderSerialNumber: newCylinderSerial.trim() || undefined,
         branchId: BigInt(selectedBranchId),
       });
     } catch (err) {
@@ -373,7 +371,7 @@ export default function RedeemVoucherPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">New Cylinder:</span>
-                  <span className="font-mono text-cyan-400">{newCylinderSerial}</span>
+                  <span className="font-mono text-cyan-400">{newCylinderSerial || 'Not recorded'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Transaction:</span>
@@ -392,7 +390,7 @@ export default function RedeemVoucherPage() {
                 <div
                   className={cn(
                     'p-3 rounded-lg text-sm',
-                    notificationStatus.sent
+                    notificationStatus.sent && !notificationStatus.warning
                       ? 'bg-green-500/10 border border-green-500/30 text-green-400'
                       : 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-400'
                   )}
@@ -598,7 +596,7 @@ export default function RedeemVoucherPage() {
 
                             <div className="space-y-2">
                               <label className="text-sm font-medium text-foreground">
-                                New Cylinder Serial Number
+                                New Cylinder Serial Number <span className="text-muted-foreground font-normal">(optional)</span>
                               </label>
                               {!selectedBranchId ? (
                                 <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-600/30 text-slate-400 text-sm">
@@ -621,7 +619,7 @@ export default function RedeemVoucherPage() {
                                     onChange={(e) => setNewCylinderSerial(e.target.value)}
                                     disabled={isRedeeming}
                                   >
-                                    <option value="">Select a {cylinderType ? `${Number(cylinderType.weightKg)}kg` : ''} cylinder...</option>
+                                    <option value="">Leave blank or select a {cylinderType ? `${Number(cylinderType.weightKg)}kg` : ''} cylinder...</option>
                                     {filteredCylinders.map((serial) => (
                                       <option key={serial} value={serial}>
                                         {serial}
@@ -633,12 +631,12 @@ export default function RedeemVoucherPage() {
                                   </p>
                                 </>
                               ) : (
-                                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                                <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-sm">
                                   <p className="font-medium">No {cylinderType ? `${Number(cylinderType.weightKg)}kg` : ''} cylinders available at this branch</p>
-                                  <p className="text-xs mt-1 text-red-300">
+                                  <p className="text-xs mt-1 text-yellow-300">
                                     {availableCylinders.length > 0 
-                                      ? `There are ${availableCylinders.length} cylinder(s) at this branch, but none match the required ${cylinderType ? `${Number(cylinderType.weightKg)}kg` : ''} type.`
-                                      : 'Cylinders must be registered in the system before they can be used for redemption. Contact an administrator to register cylinders for this branch, or select a different district.'}
+                                      ? `There are ${availableCylinders.length} cylinder(s) at this branch, but none match the required ${cylinderType ? `${Number(cylinderType.weightKg)}kg` : ''} type. You can still redeem without recording a serial.`
+                                      : 'You can redeem without recording a replacement cylinder serial, or contact an administrator to register cylinders for this branch later.'}
                                   </p>
                                 </div>
                               )}

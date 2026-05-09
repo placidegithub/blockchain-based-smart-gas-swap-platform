@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useInitiateSwap, useCompanies, useCompany, useBranches, useBranch, useCylinderTypes, useAvailableCylindersAtBranch, useCurrentStaffInfo, useRoles } from '@/lib/hooks';
+import { useInitiateSwap, useCompanies, useCompany, useBranches, useBranch, useCylinderTypes, useAvailableCylindersAtBranch, useCurrentStaffInfo, useRoles, useCylinderTypesForCompany, useCylinderType } from '@/lib/hooks';
 import { useWallet } from '@/lib/hooks/use-wallet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -105,6 +105,8 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
   const { companyIds, isLoading: isLoadingCompanies } = useCompanies();
   const { branchIds, isLoading: isLoadingBranches } = useBranches(selectedCompanyId);
   const { cylinderTypes, isLoading: isLoadingCylinderTypes } = useCylinderTypes();
+  const { typeIds: companyCylinderTypeIds, isLoading: isLoadingCompanyCylinderTypes } = useCylinderTypesForCompany(selectedCompanyId);
+  const { cylinderType: selectedCylinderTypeData } = useCylinderType(selectedCylinderType);
   const { serialNumbers: availableCylinders, isLoading: isLoadingCylinders } = useAvailableCylindersAtBranch(selectedBranchId);
   const { initiateSwap, isPending, isSuccess, isError, error, txHash, voucherId: createdVoucherIdFromChain, reset, isAuthorized, isLoadingRoles } = useInitiateSwap();
   const { company: selectedCompanyData } = useCompany(selectedCompanyId);
@@ -117,6 +119,12 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
       setSelectedBranchId(undefined);
     }
   }, [selectedCompanyId]);
+
+  useEffect(() => {
+    if (companyCylinderTypeIds.length > 0 && !companyCylinderTypeIds.includes(selectedCylinderType)) {
+      setSelectedCylinderType(companyCylinderTypeIds[0]);
+    }
+  }, [companyCylinderTypeIds, selectedCylinderType]);
 
   useEffect(() => {
     if (selectedBranchId === undefined) {
@@ -141,7 +149,8 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
     // Auto-detect and set cylinder type from serial number
     const detectedType = detectCylinderTypeFromSerial(serial);
     if (detectedType !== null) {
-      setSelectedCylinderType(detectedType);
+      const companyTypeId = companyCylinderTypeIds[Number(detectedType) - 1];
+      setSelectedCylinderType(companyTypeId ?? detectedType);
     }
   };
 
@@ -202,10 +211,8 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
     if (customerEmail || customerPhone) {
       setNotificationStatus('sending');
       try {
-        const cylinderType = CYLINDER_TYPES.find(t => t.id === selectedCylinderType);
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-        
-        const cylinderTypeLabel = cylinderType?.label || '12 kg Cylinder';
+        const cylinderTypeLabel = getCylinderTypeLabel();
         const serviceFee = getCylinderPrice(cylinderTypeLabel);
         
         const notificationData = {
@@ -269,9 +276,7 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
       }
     }
 
-    if (!cylinderSerial.trim()) {
-      errors.cylinderSerial = 'Cylinder serial number is required';
-    } else if (selectedCompanyId && cylinderSerial.trim()) {
+    if (selectedCompanyId && cylinderSerial.trim()) {
       const serialCompanyCode = getCompanyCodeFromSerial(cylinderSerial);
       if (serialCompanyCode && serialCompanyCode !== selectedCompanyId.toString().padStart(2, '0')) {
         errors.cylinderSerial = `This cylinder belongs to Company ${serialCompanyCode}, not your company. Use a cylinder registered to your company.`;
@@ -304,7 +309,9 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim(),
         customerPhone: customerPhone.trim(),
-        cylinderSerialNumber: cylinderSerial,
+        cylinderSerialNumber: cylinderSerial.trim() || undefined,
+        companyId: selectedCompanyId,
+        cylinderTypeId: selectedCylinderType,
         branchId: selectedBranchId,
       });
     } catch (err: any) {
@@ -318,6 +325,10 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
         setFormErrors({ submit: 'The selected branch is not valid or active.' });
       } else if (errorMessage.includes('Cylinder is retired')) {
         setFormErrors({ submit: 'This cylinder has been retired and cannot be used.' });
+      } else if (errorMessage.includes('Insufficient SepoliaETH') || errorMessage.toLowerCase().includes('insufficient funds')) {
+        setFormErrors({ submit: 'The connected staff wallet does not have enough SepoliaETH to pay the network fee. Fund the wallet with Sepolia test ETH and try again.' });
+      } else if (errorMessage.includes('AccessControlUnauthorizedAccount') || errorMessage.includes('missing role')) {
+        setFormErrors({ submit: 'This staff wallet is missing the required VoucherManager staff role. Ask the admin to grant staff roles again for this branch manager.' });
       } else if (errorMessage.includes('User rejected') || errorMessage.includes('User denied')) {
         setFormErrors({ submit: 'Transaction was rejected. Please try again and confirm in MetaMask.' });
       } else {
@@ -364,6 +375,9 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
   };
 
   const getCylinderTypeLabel = (): string => {
+    if (selectedCylinderTypeData) {
+      return `${Number(selectedCylinderTypeData.weightKg)} kg Cylinder`;
+    }
     // First try matching from the contract cylinder types (handles per-company IDs)
     const contractType = cylinderTypes.find(t => t.id === selectedCylinderType);
     if (contractType) {
@@ -654,7 +668,9 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Cylinder Serial Number</label>
+            <label className="text-sm font-medium text-foreground">
+              Cylinder Serial Number <span className="text-muted-foreground font-normal">(optional)</span>
+            </label>
             {!selectedBranchId ? (
               <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-600/30 text-slate-400 text-sm">
                 Please select a branch first to see available cylinders.
@@ -688,12 +704,12 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
                 <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-sm">
                   <p className="font-medium">No pre-registered cylinders at this branch</p>
                   <p className="text-xs mt-1 text-yellow-300">
-                    You can manually enter the serial number from the customer&apos;s cylinder.
+                    You can manually enter the serial number from the customer&apos;s cylinder, or leave it blank and choose the cylinder type below.
                   </p>
                 </div>
                 <Input
                   variant="glow"
-                  placeholder={`Enter cylinder serial number (e.g., CYL-C${(selectedCompanyId || 1n).toString().padStart(2, '0')}-B001-12kg-001)`}
+                  placeholder={`Optional serial number (e.g., CYL-C${(selectedCompanyId || 1n).toString().padStart(2, '0')}-B001-12kg-001)`}
                   value={cylinderSerial}
                   onChange={(e) => handleCylinderSerialChange(e.target.value)}
                   disabled={isPending}
@@ -710,13 +726,19 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
                   className="flex w-full h-10 px-4 py-2 rounded-lg bg-input border border-cyan-500/30 text-foreground focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-50"
                   value={selectedCylinderType.toString()}
                   onChange={(e) => setSelectedCylinderType(BigInt(e.target.value))}
-                  disabled={isPending}
+                  disabled={isPending || isLoadingCompanyCylinderTypes || isLoadingCylinderTypes}
                 >
-                  {(cylinderTypes.length > 0 ? cylinderTypes : CYLINDER_TYPES).map((type) => (
-                    <option key={type.id.toString()} value={type.id.toString()}>
-                      {'label' in type ? type.label : `${type.name} (${Number(type.weightKg)}kg)`}
-                    </option>
-                  ))}
+                  {companyCylinderTypeIds.length > 0 ? (
+                    companyCylinderTypeIds.map((typeId) => (
+                      <CylinderTypeOption key={typeId.toString()} typeId={typeId} />
+                    ))
+                  ) : (
+                    (cylinderTypes.length > 0 ? cylinderTypes : CYLINDER_TYPES).map((type) => (
+                      <option key={type.id.toString()} value={type.id.toString()}>
+                        {'label' in type ? type.label : `${type.name} (${Number(type.weightKg)}kg)`}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
@@ -789,6 +811,22 @@ function BranchOption({ branchId }: { branchId: bigint }) {
   return (
     <option value={branchId.toString()}>
       {branch.name}
+    </option>
+  );
+}
+
+function CylinderTypeOption({ typeId }: { typeId: bigint }) {
+  const { cylinderType, isLoading } = useCylinderType(typeId);
+
+  if (isLoading || !cylinderType) {
+    return <option value={typeId.toString()}>Loading...</option>;
+  }
+
+  const label = `${Number(cylinderType.weightKg)} kg Cylinder`;
+
+  return (
+    <option value={typeId.toString()}>
+      {label}
     </option>
   );
 }

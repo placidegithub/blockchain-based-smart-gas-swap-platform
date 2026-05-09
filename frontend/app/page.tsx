@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ConnectButton } from '@/components/wallet/connect-button';
 import { useWallet } from '@/lib/hooks/use-wallet';
+import { usePrimaryRole } from '@/lib/hooks/use-roles';
 import { usePlatformStatsFormatted } from '@/lib/hooks/use-platform-stats';
 
 const features = [
@@ -28,7 +29,14 @@ const features = [
 
 export default function LandingPage() {
   const { isConnected } = useWallet();
+  const { primaryRole, isLoading: isRoleLoading } = usePrimaryRole();
   const { stats, isLoading: statsLoading } = usePlatformStatsFormatted();
+
+  const dashboardPath = primaryRole === 'admin'
+    ? '/admin'
+    : primaryRole === 'staff'
+      ? '/staff'
+      : '/dashboard';
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -56,9 +64,9 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             {isConnected ? (
-              <Link href="/dashboard">
+              <Link href={dashboardPath}>
                 <Button size="lg" className="gap-2">
-                  Go to Dashboard
+                  {isRoleLoading ? 'Loading dashboard...' : 'Go to Dashboard'}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>

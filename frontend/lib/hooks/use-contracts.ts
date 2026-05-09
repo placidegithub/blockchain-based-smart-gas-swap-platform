@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useReadContract, useWriteContract, useChainId } from "wagmi";
-import { getContractAddresses, fetchDeployedAddresses } from "../contracts/addresses";
+import { getContractAddresses, fetchDeployedAddresses, CHAIN_IDS } from "../contracts/addresses";
 
 import VoucherManagerABI from "../contracts/abis/VoucherManager.json";
 import GasSwapPlatformABI from "../contracts/abis/GasSwapPlatform.json";
@@ -12,8 +12,8 @@ export function useContractAddresses() {
   const [runtimeAddresses, setRuntimeAddresses] = useState<ReturnType<typeof getContractAddresses> | null>(null);
 
   useEffect(() => {
-    // For localhost, fetch addresses at runtime to avoid stale cache after redeploy
-    if (chainId === 31337) {
+    // For local and Sepolia deployments, fetch addresses at runtime to avoid stale cache after redeploy
+    if (chainId === CHAIN_IDS.LOCALHOST || chainId === CHAIN_IDS.SEPOLIA) {
       fetchDeployedAddresses().then((addrs) => {
         if (addrs) {
           setRuntimeAddresses(addrs);
@@ -23,8 +23,8 @@ export function useContractAddresses() {
   }, [chainId]);
 
   try {
-    // For localhost, prefer runtime-fetched addresses
-    if (chainId === 31337 && runtimeAddresses) {
+    // For local and Sepolia deployments, prefer runtime-fetched addresses
+    if ((chainId === CHAIN_IDS.LOCALHOST || chainId === CHAIN_IDS.SEPOLIA) && runtimeAddresses) {
       return runtimeAddresses;
     }
     return getContractAddresses(chainId);

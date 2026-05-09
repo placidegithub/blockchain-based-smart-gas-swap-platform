@@ -4,15 +4,34 @@ const path = require("path");
 
 /**
  * Grant BRANCH_STAFF_ROLE to a specific address on ALL contracts.
- * 
- * Usage: npx hardhat run scripts/grant-staff-role.js --network localhost
- * 
- * Edit STAFF_ADDRESS below before running.
+ *
+ * Usage:
+ * npx hardhat run scripts/grant-staff-role.js --network sepolia -- 0xYourStaffAddress
+ * or
+ * STAFF_ADDRESS=0xYourStaffAddress npx hardhat run scripts/grant-staff-role.js --network sepolia
  */
 
-const STAFF_ADDRESS = "0x802a2638B0d438501d755cbbc48f651FfcEe073C";
+function resolveStaffAddress() {
+  const cliAddress = process.argv.slice(2).find((arg) => arg.startsWith("0x"));
+  const envAddress = process.env.STAFF_ADDRESS;
+  const staffAddress = cliAddress || envAddress;
+
+  if (!staffAddress) {
+    throw new Error(
+      "Missing staff address. Pass it as CLI arg after '--' or set STAFF_ADDRESS in env."
+    );
+  }
+
+  if (!hre.ethers.isAddress(staffAddress)) {
+    throw new Error(`Invalid Ethereum address: ${staffAddress}`);
+  }
+
+  return hre.ethers.getAddress(staffAddress);
+}
 
 async function main() {
+  const STAFF_ADDRESS = resolveStaffAddress();
+
   console.log(`\n🔧 Granting BRANCH_STAFF_ROLE to ${STAFF_ADDRESS} on all contracts...\n`);
 
   const addressesPath = path.join(__dirname, "../frontend/lib/contracts/deployed-addresses.json");

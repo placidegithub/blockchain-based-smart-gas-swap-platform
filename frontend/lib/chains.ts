@@ -1,5 +1,5 @@
 import { defineChain } from "viem";
-import { polygon, polygonMumbai } from "viem/chains";
+import { polygon, polygonMumbai, sepolia } from "viem/chains";
 
 export const localhost = defineChain({
   id: 31337,
@@ -17,11 +17,11 @@ export const localhost = defineChain({
   testnet: true,
 });
 
-export const supportedChains = [polygon, polygonMumbai, localhost] as const;
+export const supportedChains = [polygon, polygonMumbai, sepolia, localhost] as const;
 
 export type SupportedChain = (typeof supportedChains)[number];
 
-export const defaultChain = localhost;
+export const defaultChain = sepolia;
 
 export function getChainById(chainId: number): SupportedChain | undefined {
   return supportedChains.find((chain) => chain.id === chainId);
@@ -41,6 +41,11 @@ export const chainConfig = {
     ...polygonMumbai,
     blockExplorerName: "Polygonscan Mumbai",
     iconUrl: "/icons/polygon.svg",
+  },
+  sepolia: {
+    ...sepolia,
+    blockExplorerName: "Etherscan Sepolia",
+    iconUrl: "/icons/ethereum.svg",
   },
   localhost: {
     ...localhost,

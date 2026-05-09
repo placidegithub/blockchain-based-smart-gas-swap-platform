@@ -8,8 +8,8 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { generateTestWallet, downloadWalletCredentials, type GeneratedWallet } from '@/lib/wallet-generator';
 import { registerStaff } from '@/lib/staff-registry';
-import { useWalletClient } from 'wagmi';
-import { parseEther } from 'viem';
+import { useChainId } from 'wagmi';
+import { CHAIN_IDS } from '@/lib/contracts/addresses';
 
 const RWANDA_DISTRICTS = [
   { id: 0, name: 'Bugesera', province: 'Eastern' },
@@ -75,7 +75,7 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
   const [step, setStep] = useState<FormStep>('form');
   const [createdBranchId, setCreatedBranchId] = useState<bigint | null>(null);
 
-  const { data: walletClient } = useWalletClient();
+  const chainId = useChainId();
   const { companyIds, isLoading: isLoadingCompanies } = useCompanies();
   const { count: branchCount, refetch: refetchBranchCount } = useBranchCount();
   const {
@@ -201,6 +201,28 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
 
   useEffect(() => {
     if (isStaffAssigned && staffTxHash && step === 'assigning-staff' && generatedWallet) {
+      const saveStaffRecord = () => {
+        registerStaff({
+          address: generatedWallet.address,
+          privateKey: generatedWallet.privateKey,
+          companyId: Number(selectedCompanyId),
+          branchId: Number(createdBranchId),
+          branchName,
+          district: selectedDistrictId ? RWANDA_DISTRICTS[parseInt(selectedDistrictId)]?.name : undefined,
+          createdAt: new Date().toISOString(),
+        });
+      };
+
+      if (chainId !== CHAIN_IDS.LOCALHOST) {
+        setStep('complete');
+        setMessage({
+          type: 'success',
+          text: `Branch "${branchName}" created and manager assigned. Fund the manager wallet with Sepolia test ETH from a faucet before using it.`,
+        });
+        saveStaffRecord();
+        return;
+      }
+
       setStep('funding-wallet');
       (async () => {
         try {
@@ -223,44 +245,14 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
             type: 'success',
             text: `Branch "${branchName}" created, manager wallet assigned and funded with 10 ETH!`,
           });
-          registerStaff({
-            address: generatedWallet.address,
-            privateKey: generatedWallet.privateKey,
-            companyId: Number(selectedCompanyId),
-            branchId: Number(createdBranchId),
-            branchName,
-            district: selectedDistrictId ? RWANDA_DISTRICTS[parseInt(selectedDistrictId)]?.name : undefined,
-            createdAt: new Date().toISOString(),
-          });
+          saveStaffRecord();
         } catch {
-          try {
-            if (walletClient) {
-              await walletClient.sendTransaction({
-                to: generatedWallet.address,
-                value: parseEther('10'),
-              });
-              setStep('complete');
-              setMessage({
-                type: 'success',
-                text: `Branch "${branchName}" created, manager wallet assigned and funded with 10 ETH!`,
-              });
-              registerStaff({
-                address: generatedWallet.address,
-                privateKey: generatedWallet.privateKey,
-                companyId: Number(selectedCompanyId),
-                branchId: Number(createdBranchId),
-                branchName,
-                district: selectedDistrictId ? RWANDA_DISTRICTS[parseInt(selectedDistrictId)]?.name : undefined,
-                createdAt: new Date().toISOString(),
-              });
-              return;
-            }
-          } catch {}
           setStep('complete');
           setMessage({
             type: 'error',
             text: `Branch "${branchName}" created and manager assigned, but auto-funding failed. Please fund the wallet manually using: FUND_ADDRESS=${generatedWallet.address} npx hardhat run scripts/fund-wallet.js --network localhost`,
           });
+          saveStaffRecord();
         }
       })();
     } else if (isStaffAssigned && staffTxHash && step === 'assigning-staff') {
@@ -270,7 +262,7 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
         text: `Branch "${branchName}" created and manager wallet assigned successfully!`,
       });
     }
-  }, [isStaffAssigned, staffTxHash, step, branchName, generatedWallet, walletClient]);
+  }, [isStaffAssigned, staffTxHash, step, branchName, generatedWallet, chainId, selectedCompanyId, createdBranchId, selectedDistrictId]);
 
   useEffect(() => {
     if (isBranchError && branchError) {

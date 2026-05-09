@@ -19,22 +19,47 @@ interface RedemptionNotificationRequest {
   paymentStatus?: string;
 }
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USERNAME || process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD || process.env.SMTP_PASS,
-  },
-});
+function isConfiguredSecret(value?: string): boolean {
+  if (!value) {
+    return false;
+  }
 
-const africastalking = AfricasTalking({
-  apiKey: process.env.AT_API_KEY || '',
-  username: process.env.AT_USERNAME || 'sandbox',
-});
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
 
-const sms = africastalking.SMS;
+  return !(
+    normalized.startsWith('your_') ||
+    normalized.includes('example') ||
+    normalized.includes('placeholder')
+  );
+}
+
+const smtpUser = process.env.SMTP_USERNAME || process.env.SMTP_USER;
+const smtpPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
+const hasSmtpConfig = isConfiguredSecret(smtpUser) && isConfiguredSecret(smtpPass);
+const transporter = hasSmtpConfig
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587', 10),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    })
+  : null;
+
+const hasAfricaTalkingConfig = isConfiguredSecret(process.env.AT_API_KEY) && isConfiguredSecret(process.env.AT_USERNAME);
+const africastalking = hasAfricaTalkingConfig
+  ? AfricasTalking({
+      apiKey: process.env.AT_API_KEY as string,
+      username: process.env.AT_USERNAME as string,
+    })
+  : null;
+
+const sms = africastalking?.SMS ?? null;
 
 function formatRedemptionDate(redeemedAt: string): string {
   const date = new Date(redeemedAt);
@@ -152,6 +177,11 @@ function generateRedemptionSmsMessage(data: RedemptionNotificationRequest): stri
 }
 
 async function sendEmail(data: RedemptionNotificationRequest): Promise<void> {
+  if (!transporter) {
+    console.log('SMTP not configured, skipping redemption email notification');
+    return;
+  }
+
   const mailOptions: nodemailer.SendMailOptions = {
     from: `"GasSwap Platform" <${process.env.SMTP_FROM || process.env.SMTP_USERNAME}>`,
     to: data.customerEmail,
@@ -177,6 +207,11 @@ function formatPhoneNumber(phone: string): string {
 }
 
 async function sendSms(data: RedemptionNotificationRequest): Promise<void> {
+  if (!sms) {
+    console.log('Africa\'s Talking not configured, skipping redemption SMS');
+    return;
+  }
+
   const message = generateRedemptionSmsMessage(data);
   const formattedPhone = formatPhoneNumber(data.customerPhone);
   
@@ -184,11 +219,6 @@ async function sendSms(data: RedemptionNotificationRequest): Promise<void> {
   console.log(`To: ${formattedPhone}`);
   console.log(`Message: ${message}`);
   console.log('===================================');
-
-  if (!process.env.AT_API_KEY || !process.env.AT_USERNAME) {
-    console.log('Africa\'s Talking not configured, skipping SMS');
-    return;
-  }
 
   try {
     const result = await sms.send({
@@ -250,12 +280,39 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const notificationWarnings: string[] = [];
+
+    if (customerEmail) {
+      if (!transporter) {
+        notificationWarnings.push('Email skipped: SMTP credentials are not configured');
+      } else if (!results.email.sent) {
+        notificationWarnings.push(results.email.error || 'Email notification was not sent');
+      }
+    }
+
+    if (customerPhone) {
+      if (!sms) {
+        notificationWarnings.push('SMS skipped: Africa\'s Talking credentials are not configured');
+      } else if (!results.sms.sent) {
+        notificationWarnings.push(results.sms.error || 'SMS notification was not sent');
+      }
+    }
+
     const anySuccess = results.email.sent || results.sms.sent;
+    const anyAttempted = Boolean((customerEmail && transporter) || (customerPhone && sms));
 
     return NextResponse.json({
-      success: anySuccess,
+      success: anySuccess || !anyAttempted,
+      warning: notificationWarnings.length > 0,
       results,
-      message: anySuccess ? 'Redemption notifications sent successfully' : 'Failed to send notifications',
+      message:
+        notificationWarnings.length > 0
+          ? anySuccess
+            ? `Redemption recorded. Notification warnings: ${notificationWarnings.join(' | ')}`
+            : anyAttempted
+              ? `Redemption recorded, but notifications were not sent: ${notificationWarnings.join(' | ')}`
+              : `Redemption recorded. Notifications skipped: ${notificationWarnings.join(' | ')}`
+          : 'Redemption notifications sent successfully',
     });
   } catch (error) {
     console.error('Redemption notification API error:', error);

@@ -150,7 +150,7 @@ async function main() {
     voucherManager: voucherManagerAddress,
     gasSwapPlatform: gasSwapPlatformAddress,
     deployer: deployer.address,
-    chainId: 31337
+    chainId: hre.network.config.chainId || hre.network.chainId || 31337
   };
   
   const frontendAddressesPath = path.join(__dirname, "../frontend/lib/contracts/deployed-addresses.json");
@@ -166,10 +166,12 @@ async function main() {
   console.log("📁 Saved addresses to:", publicAddressesPath);
   
   console.log("\n✨ Platform is ready to use!");
-  console.log("\n🔑 IMPORTANT: Import this private key into MetaMask to access admin/staff features:");
-  console.log("   Account: " + deployer.address);
-  console.log("   Private Key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
-  console.log("   (This is Hardhat's default Account #0)");
+  if (hre.network.name === 'localhost' || hre.network.name === 'hardhat') {
+    console.log("\n🔑 IMPORTANT: Import this private key into MetaMask to access admin/staff features:");
+    console.log("   Account: " + deployer.address);
+    console.log("   Private Key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
+    console.log("   (This is Hardhat's default Account #0)");
+  }
   
   return {
     companyManager: companyManagerAddress,
