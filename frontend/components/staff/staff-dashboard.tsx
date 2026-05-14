@@ -405,6 +405,16 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
             <CardContent className="space-y-3">
               <Button
                 className="w-full justify-start"
+                variant={activeView === 'dashboard' ? 'default' : 'outline'}
+                onClick={() => setActiveView('dashboard')}
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-3m0 0l7-4 7 4M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9m-9 11l4-4m0 0l4 4m-4-4V8" />
+                </svg>
+                Overview
+              </Button>
+              <Button
+                className="w-full justify-start"
                 onClick={() => setActiveView('new-deposit')}
               >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

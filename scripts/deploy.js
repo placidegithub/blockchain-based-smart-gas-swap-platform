@@ -50,24 +50,40 @@ async function main() {
   console.log("\n5️⃣  Setting up permissions...");
   
   const BRANCH_STAFF_ROLE = await voucherManager.BRANCH_STAFF_ROLE();
+
+  const sendAndConfirm = async (txPromise, successMessage) => {
+    const tx = await txPromise;
+    await tx.wait();
+    console.log(successMessage);
+  };
   
   // Grant BRANCH_STAFF_ROLE to deployer for testing
-  await voucherManager.grantStaffRole(deployer.address);
-  console.log("   ✅ Granted BRANCH_STAFF_ROLE to deployer in VoucherManager");
+  await sendAndConfirm(
+    voucherManager.grantStaffRole(deployer.address),
+    "   ✅ Granted BRANCH_STAFF_ROLE to deployer in VoucherManager"
+  );
   
-  await cylinderRegistry.grantRole(BRANCH_STAFF_ROLE, deployer.address);
-  console.log("   ✅ Granted BRANCH_STAFF_ROLE to deployer in CylinderRegistry");
+  await sendAndConfirm(
+    cylinderRegistry.grantRole(BRANCH_STAFF_ROLE, deployer.address),
+    "   ✅ Granted BRANCH_STAFF_ROLE to deployer in CylinderRegistry"
+  );
 
   // Grant BRANCH_STAFF_ROLE to GasSwapPlatform contract so it can call child contracts
-  await voucherManager.grantStaffRole(gasSwapPlatformAddress);
-  console.log("   ✅ Granted BRANCH_STAFF_ROLE to GasSwapPlatform in VoucherManager");
+  await sendAndConfirm(
+    voucherManager.grantStaffRole(gasSwapPlatformAddress),
+    "   ✅ Granted BRANCH_STAFF_ROLE to GasSwapPlatform in VoucherManager"
+  );
   
-  await cylinderRegistry.grantRole(BRANCH_STAFF_ROLE, gasSwapPlatformAddress);
-  console.log("   ✅ Granted BRANCH_STAFF_ROLE to GasSwapPlatform in CylinderRegistry");
+  await sendAndConfirm(
+    cylinderRegistry.grantRole(BRANCH_STAFF_ROLE, gasSwapPlatformAddress),
+    "   ✅ Granted BRANCH_STAFF_ROLE to GasSwapPlatform in CylinderRegistry"
+  );
 
   // Grant BRANCH_STAFF_ROLE to deployer on GasSwapPlatform so they can call initiateSwap/completeSwap
-  await gasSwapPlatform.grantRole(BRANCH_STAFF_ROLE, deployer.address);
-  console.log("   ✅ Granted BRANCH_STAFF_ROLE to deployer in GasSwapPlatform");
+  await sendAndConfirm(
+    gasSwapPlatform.grantRole(BRANCH_STAFF_ROLE, deployer.address),
+    "   ✅ Granted BRANCH_STAFF_ROLE to deployer in GasSwapPlatform"
+  );
 
   console.log("\n" + "=".repeat(60));
   console.log("🎉 DEPLOYMENT COMPLETE!");

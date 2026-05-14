@@ -1,6 +1,8 @@
 import { useCallback } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useReadContracts } from "wagmi";
+import type { Abi } from "viem";
 import {
+  useContractAddresses,
   useCompanyManagerRead,
   useCompanyManagerWrite,
   useGasSwapPlatformRead,
@@ -9,6 +11,9 @@ import {
   useCylinderRegistryWrite,
 } from "./use-contracts";
 import { useRoles } from "./use-roles";
+import CompanyManagerABI from "../contracts/abis/CompanyManager.json";
+
+const companyManagerAbi = CompanyManagerABI as Abi;
 
 export interface Company {
   id: bigint;
@@ -238,6 +243,43 @@ export function useBranchByCompanyAndDistrict(companyId: bigint | undefined, dis
   return {
     branchId: data as bigint | undefined,
     isLoading,
+    error,
+    refetch,
+  };
+}
+
+export function useCompanyBranchInDistrict(companyId: bigint | undefined, district: string | undefined) {
+  const addresses = useContractAddresses();
+  const { branchIds, isLoading: isLoadingBranchIds } = useBranches(companyId);
+  const normalizedDistrict = district?.trim().toLowerCase();
+
+  const { data, isLoading: isLoadingBranches, error, refetch } = useReadContracts({
+    contracts: branchIds.map((branchId) => ({
+      address: addresses?.companyManager,
+      abi: companyManagerAbi,
+      functionName: "getBranch",
+      args: [branchId],
+    })),
+    query: {
+      enabled: Boolean(addresses?.companyManager && companyId && companyId > 0n && normalizedDistrict && branchIds.length > 0),
+      refetchInterval: 5000,
+    },
+  });
+
+  const branches = (data ?? [])
+    .map((item) => item.status === "success" ? item.result as Branch : undefined)
+    .filter((branch): branch is Branch => Boolean(branch));
+
+  const branch = branches.find((candidate) =>
+    candidate.companyId === companyId &&
+    candidate.isActive &&
+    candidate.district.trim().toLowerCase() === normalizedDistrict
+  );
+
+  return {
+    branchId: branch?.id,
+    branch,
+    isLoading: isLoadingBranchIds || isLoadingBranches,
     error,
     refetch,
   };

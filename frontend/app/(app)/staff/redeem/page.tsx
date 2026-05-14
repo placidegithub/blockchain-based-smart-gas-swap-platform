@@ -13,7 +13,7 @@ import {
 } from '@/lib/hooks/use-vouchers';
 import { useVoucherCustomerInfo } from '@/lib/hooks/use-recent-vouchers';
 import { useCompleteSwap } from '@/lib/hooks/use-swap';
-import { useCompany, useBranch, useBranchByCompanyAndDistrict } from '@/lib/hooks/use-companies';
+import { useCompany, useBranch, useCompanyBranchInDistrict } from '@/lib/hooks/use-companies';
 import { useCylinderTypes, useCylinderType, useAvailableCylindersAtBranch } from '@/lib/hooks/use-cylinders';
 import { cn, formatVoucherId, saveVoucherIdMapping } from '@/lib/utils';
 import { formatRWF, getVoucherPaymentStatus } from '@/lib/payment';
@@ -90,10 +90,15 @@ export default function RedeemVoucherPage() {
   const { customerInfo, isLoading: isLoadingCustomer } = useVoucherCustomerInfo(voucherIdBigInt);
   const { company, isLoading: isLoadingCompany } = useCompany(voucher?.companyId);
   const { branch: sourceBranch, isLoading: isLoadingSourceBranch } = useBranch(voucher?.sourceBranchId);
-  // Get the single branch for this company in the selected district
-  const { branchId: companyDistrictBranchId, isLoading: isLoadingCompanyBranch } = useBranchByCompanyAndDistrict(
+  const destinationDistrictName = selectedDistrictId
+    ? RWANDA_DISTRICTS[Number(selectedDistrictId)]?.name || ''
+    : '';
+
+  // Find the company's actual active branch in the selected district.
+  // This supports custom branches and newly added companies instead of relying on default branch ID math.
+  const { branchId: companyDistrictBranchId, isLoading: isLoadingCompanyBranch } = useCompanyBranchInDistrict(
     voucher?.companyId,
-    selectedDistrictId ? Number(selectedDistrictId) : undefined
+    destinationDistrictName || undefined
   );
   
   // Auto-select the branch when district is selected (since there's only one per company per district)
@@ -159,10 +164,6 @@ export default function RedeemVoucherPage() {
     }
     return '';
   }, [sourceBranch?.district]);
-
-  const destinationDistrictName = selectedDistrictId
-    ? RWANDA_DISTRICTS[Number(selectedDistrictId)]?.name || ''
-    : '';
 
   const formattedVoucherId = scannedVoucherId ? formatVoucherId(scannedVoucherId) : '';
 

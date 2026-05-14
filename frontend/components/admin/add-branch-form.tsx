@@ -8,8 +8,11 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { generateTestWallet, downloadWalletCredentials, type GeneratedWallet } from '@/lib/wallet-generator';
 import { registerStaff } from '@/lib/staff-registry';
-import { useChainId } from 'wagmi';
+import { useChainId, usePublicClient } from 'wagmi';
+import { decodeEventLog } from 'viem';
 import { CHAIN_IDS } from '@/lib/contracts/addresses';
+import { useContractAddresses } from '@/lib/hooks/use-contracts';
+import CompanyManagerABI from '@/lib/contracts/abis/CompanyManager.json';
 
 const RWANDA_DISTRICTS = [
   { id: 0, name: 'Bugesera', province: 'Eastern' },
@@ -76,8 +79,10 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
   const [createdBranchId, setCreatedBranchId] = useState<bigint | null>(null);
 
   const chainId = useChainId();
+  const publicClient = usePublicClient();
+  const contractAddresses = useContractAddresses();
   const { companyIds, isLoading: isLoadingCompanies } = useCompanies();
-  const { count: branchCount, refetch: refetchBranchCount } = useBranchCount();
+  const { refetch: refetchBranchCount } = useBranchCount();
   const {
     addBranch,
     isPending: isAddingBranch,
@@ -132,10 +137,53 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
 
   useEffect(() => {
     if (isBranchCreated && branchTxHash && step === 'creating-branch') {
-      refetchBranchCount().then((result) => {
-        const newBranchId = result.data as bigint;
+      (async () => {
+        let newBranchId: bigint | undefined;
+
+        if (publicClient && contractAddresses?.companyManager) {
+          const receipt = await publicClient.waitForTransactionReceipt({
+            hash: branchTxHash,
+          });
+
+          for (const log of receipt.logs) {
+            if (log.address.toLowerCase() !== contractAddresses.companyManager.toLowerCase()) {
+              continue;
+            }
+
+            try {
+              const decoded = decodeEventLog({
+                abi: CompanyManagerABI,
+                data: log.data,
+                topics: log.topics,
+              });
+
+              if (decoded.eventName === 'BranchRegistered' && decoded.args) {
+                const args = decoded.args as unknown as { branchId: bigint };
+                newBranchId = args.branchId;
+                break;
+              }
+            } catch {
+              // Ignore unrelated CompanyManager events in this transaction.
+            }
+          }
+        }
+
+        if (!newBranchId) {
+          const result = await refetchBranchCount();
+          newBranchId = result.data as bigint | undefined;
+        }
+
+        if (!newBranchId || newBranchId <= 0n) {
+          setMessage({
+            type: 'error',
+            text: 'Branch created, but the new branch ID could not be resolved. Please refresh branches before assigning a manager.',
+          });
+          setStep('complete');
+          return;
+        }
+
         setCreatedBranchId(newBranchId);
-        
+
         if (generatedWallet) {
           setStep('granting-voucher-role');
           grantStaffRole(generatedWallet.address).catch((err) => {
@@ -152,9 +200,15 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
             text: `Branch "${branchName}" created successfully!`,
           });
         }
+      })().catch((err) => {
+        setMessage({
+          type: 'error',
+          text: `Branch created but failed to resolve branch ID: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        });
+        setStep('complete');
       });
     }
-  }, [isBranchCreated, branchTxHash, step, generatedWallet, branchName, grantStaffRole, refetchBranchCount]);
+  }, [isBranchCreated, branchTxHash, step, generatedWallet, branchName, grantStaffRole, refetchBranchCount, publicClient, contractAddresses]);
 
   useEffect(() => {
     if (isVoucherRoleGranted && voucherRoleTxHash && step === 'granting-voucher-role' && generatedWallet) {
