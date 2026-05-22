@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Shield,
   UserCog,
+  Activity,
 } from 'lucide-react';
 import { useRoles, usePrimaryRole } from '@/lib/hooks/use-roles';
 import { cn } from '@/lib/utils';
@@ -101,6 +102,12 @@ export function SideNav({
           icon: <BarChart3 className="h-5 w-5" />,
           requiredRole: 'staff',
         },
+        {
+          href: '/transactions',
+          label: 'Transactions',
+          icon: <Activity className="h-5 w-5" />,
+          requiredRole: 'staff',
+        },
       ],
     },
     {
@@ -134,6 +141,12 @@ export function SideNav({
           href: '/admin/staff-roles',
           label: 'Staff Roles',
           icon: <Users className="h-5 w-5" />,
+          requiredRole: 'admin',
+        },
+        {
+          href: '/transactions',
+          label: 'Transactions',
+          icon: <Activity className="h-5 w-5" />,
           requiredRole: 'admin',
         },
       ],
