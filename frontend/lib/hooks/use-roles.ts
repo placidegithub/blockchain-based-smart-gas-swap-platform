@@ -83,11 +83,24 @@ export function useRoles(): RolesState {
     enabled && rolesReady
   );
 
+  const { data: assignedStaffCompany, isLoading: isLoadingAssignedCompany, isFetched: isFetchedAssignedCompany } = useCompanyManagerRead(
+    "getStaffCompany",
+    [address],
+    enabled
+  );
+
+  const { data: assignedStaffBranch, isLoading: isLoadingAssignedBranch, isFetched: isFetchedAssignedBranch } = useCompanyManagerRead(
+    "getStaffBranch",
+    [address],
+    enabled
+  );
+
   const hasError = isErrorAdminV || isErrorAdminP || isErrorStaffV || isErrorStaffP || isErrorStaffC;
 
   const isLoading = !rolesReady
     || isLoadingAdminV || isLoadingAdminP || isLoadingStaffV || isLoadingStaffP || isLoadingStaffC
-    || (enabled && (!isFetchedAdminV || !isFetchedAdminP || !isFetchedStaffV || !isFetchedStaffP || !isFetchedStaffC));
+    || isLoadingAssignedCompany || isLoadingAssignedBranch
+    || (enabled && (!isFetchedAdminV || !isFetchedAdminP || !isFetchedStaffV || !isFetchedStaffP || !isFetchedStaffC || !isFetchedAssignedCompany || !isFetchedAssignedBranch));
 
   return useMemo(
     () => {
@@ -102,7 +115,13 @@ export function useRoles(): RolesState {
       }
 
       const isPlatformAdmin = Boolean(isAdminOnVoucher) || Boolean(isAdminOnPlatform);
-      const isBranchStaff = Boolean(isStaffOnVoucher) || Boolean(isStaffOnPlatform) || Boolean(isStaffOnCompany);
+      const hasBranchAssignment = Boolean(
+        assignedStaffCompany &&
+        assignedStaffBranch &&
+        (assignedStaffCompany as bigint) > 0n &&
+        (assignedStaffBranch as bigint) > 0n
+      );
+      const isBranchStaff = Boolean(isStaffOnVoucher) || Boolean(isStaffOnPlatform) || Boolean(isStaffOnCompany) || hasBranchAssignment;
       return {
         isPlatformAdmin,
         isBranchStaff,
@@ -111,7 +130,7 @@ export function useRoles(): RolesState {
         hasError: false,
       };
     },
-    [isAdminOnVoucher, isAdminOnPlatform, isStaffOnVoucher, isStaffOnPlatform, isStaffOnCompany, isLoading, hasError]
+    [isAdminOnVoucher, isAdminOnPlatform, isStaffOnVoucher, isStaffOnPlatform, isStaffOnCompany, assignedStaffCompany, assignedStaffBranch, isLoading, hasError]
   );
 }
 

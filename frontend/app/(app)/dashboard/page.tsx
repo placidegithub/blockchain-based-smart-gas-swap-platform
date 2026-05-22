@@ -33,22 +33,24 @@ const quickGuide = [
 export default function DashboardPage() {
   const router = useRouter();
   const { address, isConnected } = useWallet();
-  const { primaryRole } = usePrimaryRole();
+  const { primaryRole, isLoading: isLoadingRole } = usePrimaryRole();
   const { activeVoucherIds, isLoading } = useActiveVouchers(address);
   const { voucherIds: allVoucherIds, isLoading: isLoadingAll } = useCustomerVouchers(address);
-  const { company: staffCompany, isStaffAssigned } = useCurrentStaffInfo();
+  const { company: staffCompany, isStaffAssigned, isLoading: isLoadingStaffInfo } = useCurrentStaffInfo();
   
-  // Redirect admin to their dedicated dashboard
+  // Redirect privileged users to their dedicated dashboards.
   useEffect(() => {
     if (primaryRole === 'admin') {
       router.replace('/admin');
+    } else if (primaryRole === 'staff' || isStaffAssigned) {
+      router.replace('/staff');
     }
-  }, [primaryRole, router]);
+  }, [primaryRole, isStaffAssigned, router]);
 
   // For staff, get all platform vouchers
   const { transactions: platformTransactions, voucherIds: platformVoucherIds, isLoading: isLoadingPlatform, VoucherMappers } = useRecentVouchers(50);
-  const isStaff = primaryRole === 'staff';
-  const isStaffOnly = primaryRole === 'staff' && isStaffAssigned;
+  const isStaff = primaryRole === 'staff' || isStaffAssigned;
+  const isStaffOnly = isStaff && isStaffAssigned;
   
   // Filter platform vouchers by company for staff
   const filteredPlatformVoucherIds = isStaffOnly && staffCompany
@@ -63,7 +65,15 @@ export default function DashboardPage() {
     (id) => !activeVoucherIds.some((activeId) => activeId === id)
   );
 
-  if (primaryRole === 'admin') {
+  if (isConnected && (isLoadingRole || isLoadingStaffInfo || primaryRole === null)) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin h-8 w-8 border-2 border-cyan-500 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (primaryRole === 'admin' || primaryRole === 'staff' || isStaffAssigned) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="animate-spin h-8 w-8 border-2 border-cyan-500 border-t-transparent rounded-full" />

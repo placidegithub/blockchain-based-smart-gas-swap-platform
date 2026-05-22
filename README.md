@@ -1,3 +1,11 @@
+$env:FROM_BLOCK='10800000'; npx hardhat run scripts/check-chain-activity.js --network sepolia
+
+# Etherscan links:
+
+https://sepolia.etherscan.io/address/0xD12F9740F19Cb95b1a08FBD49F64CC0677853d65
+https://sepolia.etherscan.io/address/0x1407272FA1A1559a27e85AF3d9Ab98614F3F34a1
+https://sepolia.etherscan.io/address/0xee5ec8E8c7d349438A64E7f8c4751Af50F27ED67
+https://sepolia.etherscan.io/address/0x9C24779f33B450a8e562abbCb10cd5E3D0F2728E
 # 🔗 Blockchain Gas Cylinder Swap Platform
 
 A fully decentralized blockchain-based platform for gas cylinder exchange across districts in Rwanda.

@@ -1,8 +1,8 @@
 {
-  "companyManager": "0x8031B9D9A29Cdf649bFFC0674fDC625C89aC548b",
-  "cylinderRegistry": "0x5a644Aab509B7e2fE238375D113Cc0c4Dc5F76A1",
-  "voucherManager": "0x7942905efFC4D4B36eCcAcE1b6462e4992bf87Eb",
-  "gasSwapPlatform": "0xffEA9bBFa81aC6533CD2C2C0459D5d523E26481F",
+  "companyManager": "0x1407272FA1A1559a27e85AF3d9Ab98614F3F34a1",
+  "cylinderRegistry": "0xee5ec8E8c7d349438A64E7f8c4751Af50F27ED67",
+  "voucherManager": "0xD12F9740F19Cb95b1a08FBD49F64CC0677853d65",
+  "gasSwapPlatform": "0x9C24779f33B450a8e562abbCb10cd5E3D0F2728E",
   "deployer": "0x358dc5FCb8d15aFaa0d5C26d8012025c9449c3d6",
   "chainId": 11155111
 }

@@ -3,6 +3,10 @@ import { polygon, polygonMumbai, sepolia } from "viem/chains";
 import { injected } from "wagmi/connectors";
 import { localhost } from "./chains";
 
+const sepoliaRpcUrl =
+  process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ||
+  "https://ethereum-sepolia-rpc.publicnode.com";
+
 const noopStorage = {
   getItem: () => null,
   setItem: () => {},
@@ -22,7 +26,7 @@ export const wagmiConfig = createConfig({
       timeout: 10000,
       retryCount: 2,
     }),
-    [sepolia.id]: http("https://ethereum-sepolia-rpc.publicnode.com", {
+    [sepolia.id]: http(sepoliaRpcUrl, {
       timeout: 10000,
     }),
     [polygonMumbai.id]: http(undefined, {
