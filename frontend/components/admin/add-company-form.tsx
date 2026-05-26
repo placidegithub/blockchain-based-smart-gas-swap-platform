@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { EtherscanTxLink } from '@/components/shared';
 
 interface AddCompanyFormProps {
   className?: string;
@@ -191,9 +192,10 @@ export function AddCompanyForm({ className, onSuccess }: AddCompanyFormProps) {
                 <span>{message.text}</span>
               </div>
               {message.type === 'success' && txHash && (
-                <p className="mt-2 text-xs font-mono break-all">
-                  TX: {txHash}
-                </p>
+                <div className="mt-3">
+                  <p className="text-xs font-mono break-all mb-2">TX: {txHash}</p>
+                  <EtherscanTxLink txHash={txHash} />
+                </div>
               )}
             </div>
           )}

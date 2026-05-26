@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { cn, shortenAddress, formatDate } from '@/lib/utils';
 import { getCylinderPrice, formatRWF } from '@/lib/payment';
 import { Banknote, XCircle, Loader2, AlertCircle, RotateCcw } from 'lucide-react';
+import { EtherscanTxLink } from '@/components/shared';
 
 export interface Transaction {
   voucherId: bigint;
@@ -355,15 +356,9 @@ export function TransactionList({
                       {tx.txHash && (
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Blockchain Tx:</span>
-                          <a
-                            href={`https://etherscan.io/tx/${tx.txHash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-mono text-cyan-400 hover:underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {shortenAddress(tx.txHash)}
-                          </a>
+                          <span onClick={(e) => e.stopPropagation()}>
+                            <EtherscanTxLink txHash={tx.txHash} compact />
+                          </span>
                         </div>
                       )}
                     </div>

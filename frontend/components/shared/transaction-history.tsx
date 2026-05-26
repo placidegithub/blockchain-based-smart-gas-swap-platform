@@ -8,6 +8,7 @@ import { getCylinderPrice, formatRWF, getVoucherPaymentStatus, markVoucherAsPaid
 import { isVoucherAlreadyPaid } from '@/lib/fund-storage';
 import { useRecentVouchers } from '@/lib/hooks';
 import { PaymentForm } from '@/components/payment';
+import { EtherscanTxLink } from './etherscan-link';
 import { History, Banknote, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface TransactionHistoryProps {
@@ -376,15 +377,9 @@ export function TransactionHistory({
                       {tx.txHash && (
                         <div className="pt-2">
                           <span className="text-muted-foreground">Blockchain Tx: </span>
-                          <a
-                            href={`https://etherscan.io/tx/${tx.txHash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-mono text-cyan-400 hover:underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {shortenAddress(tx.txHash)}
-                          </a>
+                          <span onClick={(e) => e.stopPropagation()}>
+                            <EtherscanTxLink txHash={tx.txHash} compact />
+                          </span>
                         </div>
                       )}
                     </div>

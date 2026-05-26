@@ -5,6 +5,7 @@ import { useCompleteSwap, useVerifyVoucher, useCompany, useBranch, useCylinderTy
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { EtherscanTxLink } from '@/components/shared';
 import { cn, formatDate } from '@/lib/utils';
 
 interface CompleteSwapFormProps {
@@ -166,6 +167,7 @@ export function CompleteSwapForm({ initialVoucherId, voucherId, onSuccess, onCan
               <span className="font-mono text-cyan-400 text-sm truncate max-w-[200px]">{txHash}</span>
             </div>
           </div>
+          <EtherscanTxLink txHash={txHash} className="w-full" />
         </CardContent>
         <CardFooter>
           <Button onClick={handleReset} variant="outline" className="w-full">

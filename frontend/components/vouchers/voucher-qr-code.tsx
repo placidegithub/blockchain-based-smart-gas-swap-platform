@@ -22,7 +22,7 @@ export function VoucherQRCode({
   const [copied, setCopied] = React.useState(false);
   const qrRef = React.useRef<HTMLDivElement>(null);
 
-  const verifyUrl = `${baseUrl}/vouchers/verify/${voucherId}`;
+  const verifyUrl = `${baseUrl}/verify/${voucherId}`;
 
   const handleCopyLink = async () => {
     try {

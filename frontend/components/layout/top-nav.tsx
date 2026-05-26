@@ -24,6 +24,7 @@ export function TopNav({ onMenuClick, showMenuButton = true }: TopNavProps) {
       label: 'Dashboard',
       show: true,
     },
+    { href: '/verify', label: 'Verify Voucher', show: true },
     { href: '/admin', label: 'Admin Panel', show: primaryRole === 'admin' },
   ];
 

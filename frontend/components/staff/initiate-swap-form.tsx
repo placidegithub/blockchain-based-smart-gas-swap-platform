@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { cn, formatVoucherId, saveVoucherIdMapping } from '@/lib/utils';
 import { sendVoucherNotification } from '@/lib/notifications';
 import { PaymentForm } from '@/components/payment';
+import { EtherscanTxLink } from '@/components/shared';
 import { getCylinderPrice, formatRWF } from '@/lib/payment';
 import { saveRecentVoucher } from '@/lib/hooks/use-recent-vouchers';
 import QRCode from 'qrcode';
@@ -183,7 +184,7 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
   const generateQRCode = async (voucherId: string): Promise<string | null> => {
     try {
       // Generate a verification URL that staff can scan
-      const verifyUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/vouchers/verify/${voucherId}`;
+      const verifyUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/verify/${voucherId}`;
       const dataUrl = await QRCode.toDataURL(verifyUrl, {
         width: 300,
         margin: 2,
@@ -486,6 +487,8 @@ export function InitiateSwapForm({ onSuccess, className }: InitiateSwapFormProps
               <span className="font-mono text-cyan-400 text-sm truncate max-w-[200px]">{txHash}</span>
             </div>
           </div>
+
+          <EtherscanTxLink txHash={txHash} className="w-full" />
 
           {/* Payment Status */}
           {paymentCompleted && (

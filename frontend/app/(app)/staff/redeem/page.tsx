@@ -5,6 +5,7 @@ import { ArrowLeft, User, Mail, Phone, MapPin, Package, CheckCircle2 } from 'luc
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { EtherscanTxLink } from '@/components/shared';
 import { RoleGuard } from '@/components/wallet/role-guard';
 import { VoucherScanner } from '@/components/vouchers';
 import {
@@ -379,6 +380,8 @@ export default function RedeemVoucherPage() {
                   <span className="font-mono text-cyan-400 text-sm truncate max-w-[250px]">{txHash}</span>
                 </div>
               </div>
+
+              <EtherscanTxLink txHash={txHash} className="w-full" />
 
               {isSendingNotification && (
                 <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 text-sm flex items-center gap-2">

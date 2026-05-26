@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePlatformStatsFormatted } from '@/lib/hooks/use-platform-stats';
 import { useRoles } from '@/lib/hooks/use-roles';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { cn, formatDate } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { useChainActivity } from '@/lib/hooks/use-chain-activity';
+import { useRecentVouchers } from '@/lib/hooks/use-recent-vouchers';
+import { formatRWF, getCylinderPrice, getVoucherPaymentStatus } from '@/lib/payment';
 import { CompanyTable } from './company-table';
 import { BranchTable } from './branch-table';
 import { CylinderTable } from './cylinder-table';
@@ -14,6 +17,14 @@ import { AddCompanyForm } from './add-company-form';
 import { AddBranchForm } from './add-branch-form';
 import { AddCylinderForm } from './add-cylinder-form';
 import { TransactionHistory } from '@/components/shared';
+import {
+  Activity,
+  BarChart3,
+  CheckCircle2,
+  Clock,
+  Database,
+  TrendingUp,
+} from 'lucide-react';
 
 interface AdminDashboardProps {
   className?: string;
@@ -63,12 +74,144 @@ function StatCard({ title, value, icon, color }: StatCardProps) {
   );
 }
 
+function ProgressBar({
+  label,
+  value,
+  max,
+  color = 'bg-cyan-500',
+}: {
+  label: string;
+  value: number;
+  max: number;
+  color?: string;
+}) {
+  const width = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 0;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-slate-300">{label}</span>
+        <span className="font-mono text-white">{value}</span>
+      </div>
+      <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+        <div className={cn('h-full rounded-full', color)} style={{ width: `${width}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function InsightCard({
+  title,
+  value,
+  detail,
+  icon,
+}: {
+  title: string;
+  value: string | number;
+  detail: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <Card variant="default">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground">{title}</p>
+            <p className="text-2xl font-bold text-foreground mt-1">{value}</p>
+            <p className="text-xs text-slate-500 mt-2">{detail}</p>
+          </div>
+          <div className="p-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-300">
+            {icon}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function AdminDashboard({ className }: AdminDashboardProps) {
   const [activeView, setActiveView] = useState<ActiveView>('dashboard');
   const [selectedCompanyId, setSelectedCompanyId] = useState<bigint | undefined>();
+  const [paymentRefreshKey, setPaymentRefreshKey] = useState(0);
 
   const { stats, isLoading: isLoadingStats } = usePlatformStatsFormatted();
   const { isPlatformAdmin, isLoading: isLoadingRoles } = useRoles();
+  const { data: chainActivity, isLoading: isLoadingActivity } = useChainActivity(100);
+  const { transactions, isLoading: isLoadingTransactions, VoucherMappers } = useRecentVouchers(50);
+
+  useEffect(() => {
+    const refreshPayments = () => setPaymentRefreshKey((key) => key + 1);
+
+    window.addEventListener('gasswap_payment_added', refreshPayments);
+    window.addEventListener('storage', refreshPayments);
+
+    return () => {
+      window.removeEventListener('gasswap_payment_added', refreshPayments);
+      window.removeEventListener('storage', refreshPayments);
+    };
+  }, []);
+
+  const analytics = useMemo(() => {
+    const deposits = transactions.filter((tx) => tx.type === 'deposit');
+    const redemptions = transactions.filter((tx) => tx.type === 'redemption');
+    const paidDeposits = deposits
+      .map((tx) => ({
+        tx,
+        payment: getVoucherPaymentStatus(tx.voucherId.toString()),
+      }))
+      .filter(({ payment }) => payment?.status === 'paid');
+    const cancelledDeposits = deposits.filter(
+      (tx) => getVoucherPaymentStatus(tx.voucherId.toString())?.status === 'cancelled'
+    );
+    const revenue = paidDeposits.reduce((sum, { tx, payment }) => {
+      const recordedAmount = payment?.amount;
+      return sum + (typeof recordedAmount === 'number' ? recordedAmount : getCylinderPrice(tx.cylinderType));
+    }, 0);
+
+    const companyCounts = new Map<string, number>();
+    const cylinderCounts = new Map<string, number>();
+
+    for (const tx of transactions) {
+      const company = tx.companyName || 'Unknown';
+      companyCounts.set(company, (companyCounts.get(company) || 0) + 1);
+
+      const cylinder = tx.cylinderType || 'Unknown';
+      cylinderCounts.set(cylinder, (cylinderCounts.get(cylinder) || 0) + 1);
+    }
+
+    const topCompanies = Array.from(companyCounts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    const cylinderTypes = Array.from(cylinderCounts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      redemptions: redemptions.length,
+      paidDeposits: paidDeposits.length,
+      pendingDeposits: Math.max(deposits.length - paidDeposits.length - cancelledDeposits.length, 0),
+      revenue,
+      topCompanies,
+      cylinderTypes,
+      swapRate: deposits.length > 0 ? (redemptions.length / deposits.length) * 100 : 0,
+    };
+  }, [transactions, paymentRefreshKey]);
+
+  const totalEntityCount =
+    (stats?.totalCompanies ?? 0) +
+    (stats?.totalBranches ?? 0) +
+    (stats?.totalCylinders ?? 0) +
+    (stats?.totalVouchers ?? 0);
+
+  const entityMax = Math.max(
+    stats?.totalCompanies ?? 0,
+    stats?.totalBranches ?? 0,
+    stats?.totalCylinders ?? 0,
+    stats?.totalVouchers ?? 0,
+    1
+  );
 
   if (isLoadingRoles) {
     return (
@@ -188,6 +331,8 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
 
   return (
     <div className={cn('w-full space-y-6', className)}>
+      {VoucherMappers}
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
@@ -251,6 +396,33 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
             </svg>
           }
           color="orange"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <InsightCard
+          title="Collected Voucher Revenue"
+          value={isLoadingTransactions ? '-' : formatRWF(analytics.revenue)}
+          detail={`${analytics.paidDeposits} paid recent deposits, ${analytics.pendingDeposits} pending`}
+          icon={<TrendingUp className="h-5 w-5" />}
+        />
+        <InsightCard
+          title="Recent Swap Rate"
+          value={isLoadingTransactions ? '-' : `${analytics.swapRate.toFixed(1)}%`}
+          detail={`${analytics.redemptions} redemptions from recent voucher feed`}
+          icon={<CheckCircle2 className="h-5 w-5" />}
+        />
+        <InsightCard
+          title="On-chain Events"
+          value={isLoadingActivity ? '-' : chainActivity?.stats.totalEvents ?? 0}
+          detail="Decoded from current deployed contracts"
+          icon={<Activity className="h-5 w-5" />}
+        />
+        <InsightCard
+          title="Registry Footprint"
+          value={isLoadingStats ? '-' : totalEntityCount}
+          detail="Companies, branches, cylinders, and vouchers"
+          icon={<Database className="h-5 w-5" />}
         />
       </div>
 
@@ -380,10 +552,72 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
         </Card>
       </div>
 
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <Card variant="glow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-cyan-400" />
+              Entity Coverage
+            </CardTitle>
+            <CardDescription>Live totals from smart contracts</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ProgressBar label="Companies" value={stats?.totalCompanies ?? 0} max={entityMax} color="bg-cyan-500" />
+            <ProgressBar label="Branches" value={stats?.totalBranches ?? 0} max={entityMax} color="bg-purple-500" />
+            <ProgressBar label="Cylinders" value={stats?.totalCylinders ?? 0} max={entityMax} color="bg-blue-500" />
+            <ProgressBar label="Vouchers" value={stats?.totalVouchers ?? 0} max={entityMax} color="bg-emerald-500" />
+          </CardContent>
+        </Card>
+
+        <Card variant="glow">
+          <CardHeader>
+            <CardTitle>Top Companies</CardTitle>
+            <CardDescription>Recent voucher activity by company</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {analytics.topCompanies.length > 0 ? (
+              analytics.topCompanies.map((company) => (
+                <ProgressBar
+                  key={company.name}
+                  label={company.name}
+                  value={company.count}
+                  max={Math.max(...analytics.topCompanies.map((item) => item.count), 1)}
+                  color="bg-cyan-500"
+                />
+              ))
+            ) : (
+              <p className="text-sm text-slate-400">No recent company voucher activity yet.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card variant="glow">
+          <CardHeader>
+            <CardTitle>Cylinder Mix</CardTitle>
+            <CardDescription>Recent voucher activity by cylinder type</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {analytics.cylinderTypes.length > 0 ? (
+              analytics.cylinderTypes.map((type) => (
+                <ProgressBar
+                  key={type.name}
+                  label={type.name}
+                  value={type.count}
+                  max={Math.max(...analytics.cylinderTypes.map((item) => item.count), 1)}
+                  color="bg-orange-500"
+                />
+              ))
+            ) : (
+              <p className="text-sm text-slate-400">No recent cylinder activity yet.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       {stats && (
         <Card variant="glass">
           <CardContent className="py-4">
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm">
               <div className="flex items-center gap-4">
                 <span className="text-muted-foreground">Success Rate:</span>
                 <span className="text-foreground font-medium">
@@ -391,10 +625,8 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
                 </span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Powered by Blockchain
+                <Clock className="w-4 h-4" />
+                Last scanned block: {chainActivity?.stats.latestBlock?.toString() ?? 'loading'}
               </div>
             </div>
           </CardContent>

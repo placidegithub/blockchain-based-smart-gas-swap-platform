@@ -73,6 +73,11 @@ export function SideNav({
           label: 'Dashboard',
           icon: <LayoutDashboard className="h-5 w-5" />,
         },
+        {
+          href: '/verify',
+          label: 'Verify Voucher',
+          icon: <QrCode className="h-5 w-5" />,
+        },
       ],
     },
     {

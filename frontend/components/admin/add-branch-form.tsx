@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { EtherscanTxLink } from '@/components/shared';
 import { generateTestWallet, downloadWalletCredentials, type GeneratedWallet } from '@/lib/wallet-generator';
 import { registerStaff } from '@/lib/staff-registry';
 import { useChainId, usePublicClient } from 'wagmi';
@@ -500,19 +501,22 @@ export function AddBranchForm({ className, onSuccess }: AddBranchFormProps) {
                 <span className="font-semibold">{message?.text}</span>
               </div>
               {branchTxHash && (
-                <p className="text-xs font-mono break-all mt-2">
-                  Branch TX: {branchTxHash}
-                </p>
+                <div className="mt-3">
+                  <p className="text-xs font-mono break-all mb-2">Branch TX: {branchTxHash}</p>
+                  <EtherscanTxLink txHash={branchTxHash} label="View branch transaction" />
+                </div>
               )}
               {voucherRoleTxHash && (
-                <p className="text-xs font-mono break-all mt-1">
-                  VoucherManager Role TX: {voucherRoleTxHash}
-                </p>
+                <div className="mt-3">
+                  <p className="text-xs font-mono break-all mb-2">VoucherManager Role TX: {voucherRoleTxHash}</p>
+                  <EtherscanTxLink txHash={voucherRoleTxHash} label="View VoucherManager role transaction" />
+                </div>
               )}
               {staffTxHash && (
-                <p className="text-xs font-mono break-all mt-1">
-                  Branch Assignment TX: {staffTxHash}
-                </p>
+                <div className="mt-3">
+                  <p className="text-xs font-mono break-all mb-2">Branch Assignment TX: {staffTxHash}</p>
+                  <EtherscanTxLink txHash={staffTxHash} label="View assignment transaction" />
+                </div>
               )}
             </div>
 

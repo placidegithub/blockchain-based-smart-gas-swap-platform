@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { usePublicClient, useChainId } from "wagmi";
-import { decodeEventLog, type Abi } from "viem";
+import { decodeEventLog, type Abi, type PublicClient } from "viem";
 import { useContractAddresses } from "./use-contracts";
 import { shortenAddress } from "@/lib/utils";
 
@@ -13,6 +13,27 @@ import GasSwapPlatformABI from "../contracts/abis/GasSwapPlatform.json";
 
 const CHUNK_SIZE = 45_000n;
 const DEFAULT_BLOCK_WINDOW = 135_000n;
+
+async function getLogsInChunks(
+  publicClient: PublicClient,
+  address: `0x${string}`,
+  fromBlock: bigint,
+  toBlock: bigint
+) {
+  const logs = [];
+
+  for (let start = fromBlock; start <= toBlock; start += CHUNK_SIZE) {
+    const end = start + CHUNK_SIZE - 1n > toBlock ? toBlock : start + CHUNK_SIZE - 1n;
+    const chunk = await publicClient.getLogs({
+      address,
+      fromBlock: start,
+      toBlock: end,
+    });
+    logs.push(...chunk);
+  }
+
+  return logs;
+}
 
 const CONTRACTS = [
   {
@@ -57,6 +78,14 @@ export interface ChainActivityStats {
   totalEvents: number;
   byContract: Record<string, number>;
   byEvent: Record<string, number>;
+}
+
+export interface VoucherChainProof {
+  createdTxHash?: `0x${string}`;
+  redeemedTxHash?: `0x${string}`;
+  createdBlock?: bigint;
+  redeemedBlock?: bigint;
+  explorerBaseUrl: string;
 }
 
 function explorerBaseUrl(chainId: number) {
@@ -204,6 +233,67 @@ export function useChainActivity(limit = 100) {
           byEvent,
         } satisfies ChainActivityStats,
       };
+    },
+  });
+}
+
+export function useVoucherChainProof(voucherId: bigint | undefined) {
+  const publicClient = usePublicClient();
+  const chainId = useChainId();
+  const addresses = useContractAddresses();
+
+  return useQuery({
+    queryKey: ["voucher-chain-proof", chainId, addresses?.voucherManager, voucherId?.toString()],
+    enabled: Boolean(publicClient && addresses?.voucherManager && voucherId && voucherId > 0n),
+    refetchInterval: 30_000,
+    queryFn: async () => {
+      if (!publicClient || !addresses?.voucherManager || !voucherId) {
+        throw new Error("Voucher proof cannot be loaded yet.");
+      }
+
+      const latestBlock = await publicClient.getBlockNumber();
+      const fromBlock =
+        latestBlock > DEFAULT_BLOCK_WINDOW ? latestBlock - DEFAULT_BLOCK_WINDOW : 0n;
+      const baseUrl = explorerBaseUrl(chainId);
+      const logs = await getLogsInChunks(
+        publicClient,
+        addresses.voucherManager,
+        fromBlock,
+        latestBlock
+      );
+
+      const proof: VoucherChainProof = {
+        explorerBaseUrl: baseUrl,
+      };
+
+      for (const log of logs) {
+        if (!log.transactionHash) continue;
+
+        try {
+          const decoded = decodeEventLog({
+            abi: VoucherManagerABI as Abi,
+            data: log.data,
+            topics: log.topics,
+          });
+
+          const eventVoucherId = argValue(decoded.args, "voucherId");
+          if (eventVoucherId !== voucherId) continue;
+
+          if (decoded.eventName === "VoucherCreated") {
+            proof.createdTxHash = log.transactionHash;
+            proof.createdBlock = log.blockNumber ?? undefined;
+          }
+
+          if (decoded.eventName === "VoucherRedeemed") {
+            proof.redeemedTxHash = log.transactionHash;
+            proof.redeemedBlock = log.blockNumber ?? undefined;
+          }
+        } catch {
+          // Ignore logs that are not part of this proof.
+        }
+      }
+
+      return proof;
     },
   });
 }
