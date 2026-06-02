@@ -11,6 +11,8 @@ import { CompleteSwapForm } from './complete-swap-form';
 import { TransactionList, Transaction } from './transaction-list';
 import { FundTracker } from './fund-tracker';
 import { AnalyticsDashboard } from './analytics-dashboard';
+import { BranchInventoryDashboard } from './branch-inventory-dashboard';
+import { NotificationStatusPanel } from './notification-status-panel';
 import { PaymentForm } from '@/components/payment';
 import { TransactionHistory } from '@/components/shared';
 import { getCylinderPrice, formatRWF, getVoucherPaymentStatus, markVoucherAsCancelled, markVoucherAsPaid, resetVoucherPaymentStatus } from '@/lib/payment';
@@ -20,7 +22,7 @@ interface StaffDashboardProps {
   className?: string;
 }
 
-type ActiveView = 'dashboard' | 'new-deposit' | 'scan-voucher' | 'payment' | 'transaction-history' | 'analytics';
+type ActiveView = 'dashboard' | 'new-deposit' | 'scan-voucher' | 'payment' | 'transaction-history' | 'inventory' | 'analytics';
 
 interface PaymentContext {
   voucherId: bigint;
@@ -295,6 +297,29 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
     );
   }
 
+  if (activeView === 'inventory') {
+    return (
+      <div className={cn('w-full', className)}>
+        <div className="mb-6">
+          <Button variant="ghost" onClick={() => setActiveView('dashboard')}>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Dashboard
+          </Button>
+        </div>
+        <BranchInventoryDashboard
+          branchId={staffBranch?.id || selectedBranchId}
+          branchName={staffBranch?.name}
+          companyName={staffCompany?.name}
+          district={staffBranch?.district}
+          transactions={recentTransactions}
+          isLoadingTransactions={isLoadingTransactions}
+        />
+      </div>
+    );
+  }
+
   // Derive stats from actual filtered transactions so numbers match what the user sees
   const totalDeposits = filteredTransactions.filter(tx => tx.type === 'deposit').length;
   const totalRedemptions = filteredTransactions.filter(tx => tx.type === 'redemption').length;
@@ -456,6 +481,16 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
               <Button
                 variant="ghost"
                 className="w-full justify-start"
+                onClick={() => setActiveView('inventory')}
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                Inventory
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
                 onClick={() => setActiveView('analytics')}
               >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -470,6 +505,8 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
             branchId={staffBranch?.id?.toString() || selectedBranchId?.toString()}
             companyId={staffCompany?.id?.toString() || selectedCompanyId?.toString()}
           />
+
+          <NotificationStatusPanel />
         </div>
 
         <div className="lg:col-span-2">

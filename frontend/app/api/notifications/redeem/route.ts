@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import AfricasTalking from 'africastalking';
+import { hasHttpSmsConfig, sendHttpSms, formatRwandaPhoneNumber } from '@/lib/server/httpsms';
 
 interface RedemptionNotificationRequest {
   voucherId: string;
@@ -50,16 +50,6 @@ const transporter = hasSmtpConfig
       },
     })
   : null;
-
-const hasAfricaTalkingConfig = isConfiguredSecret(process.env.AT_API_KEY) && isConfiguredSecret(process.env.AT_USERNAME);
-const africastalking = hasAfricaTalkingConfig
-  ? AfricasTalking({
-      apiKey: process.env.AT_API_KEY as string,
-      username: process.env.AT_USERNAME as string,
-    })
-  : null;
-
-const sms = africastalking?.SMS ?? null;
 
 function formatRedemptionDate(redeemedAt: string): string {
   const date = new Date(redeemedAt);
@@ -179,7 +169,7 @@ function generateRedemptionSmsMessage(data: RedemptionNotificationRequest): stri
 async function sendEmail(data: RedemptionNotificationRequest): Promise<void> {
   if (!transporter) {
     console.log('SMTP not configured, skipping redemption email notification');
-    return;
+    throw new Error('SMTP credentials are not configured');
   }
 
   const mailOptions: nodemailer.SendMailOptions = {
@@ -192,28 +182,14 @@ async function sendEmail(data: RedemptionNotificationRequest): Promise<void> {
   await transporter.sendMail(mailOptions);
 }
 
-function formatPhoneNumber(phone: string): string {
-  const cleaned = phone.replace(/\s/g, '');
-  if (cleaned.startsWith('+250')) {
-    return cleaned;
-  }
-  if (cleaned.startsWith('0')) {
-    return '+250' + cleaned.substring(1);
-  }
-  if (cleaned.startsWith('250')) {
-    return '+' + cleaned;
-  }
-  return '+250' + cleaned;
-}
-
 async function sendSms(data: RedemptionNotificationRequest): Promise<void> {
-  if (!sms) {
-    console.log('Africa\'s Talking not configured, skipping redemption SMS');
-    return;
+  if (!hasHttpSmsConfig()) {
+    console.log('httpSMS not configured, skipping redemption SMS');
+    throw new Error('httpSMS credentials are not configured');
   }
 
   const message = generateRedemptionSmsMessage(data);
-  const formattedPhone = formatPhoneNumber(data.customerPhone);
+  const formattedPhone = formatRwandaPhoneNumber(data.customerPhone);
   
   console.log('=== REDEMPTION SMS NOTIFICATION ===');
   console.log(`To: ${formattedPhone}`);
@@ -221,14 +197,10 @@ async function sendSms(data: RedemptionNotificationRequest): Promise<void> {
   console.log('===================================');
 
   try {
-    const result = await sms.send({
-      to: [formattedPhone],
-      message: message,
-      from: process.env.AT_SENDER_ID,
-    });
+    const result = await sendHttpSms(formattedPhone, message);
     console.log('SMS sent successfully:', result);
   } catch (error) {
-    console.error('Africa\'s Talking SMS error:', error);
+    console.error('httpSMS error:', error);
     throw error;
   }
 }
@@ -291,15 +263,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (customerPhone) {
-      if (!sms) {
-        notificationWarnings.push('SMS skipped: Africa\'s Talking credentials are not configured');
+      if (!hasHttpSmsConfig()) {
+        notificationWarnings.push('SMS skipped: httpSMS credentials are not configured');
       } else if (!results.sms.sent) {
         notificationWarnings.push(results.sms.error || 'SMS notification was not sent');
       }
     }
 
     const anySuccess = results.email.sent || results.sms.sent;
-    const anyAttempted = Boolean((customerEmail && transporter) || (customerPhone && sms));
+    const anyAttempted = Boolean((customerEmail && transporter) || (customerPhone && hasHttpSmsConfig()));
 
     return NextResponse.json({
       success: anySuccess || !anyAttempted,

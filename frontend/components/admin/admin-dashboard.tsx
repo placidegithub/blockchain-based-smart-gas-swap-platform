@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useChainActivity } from '@/lib/hooks/use-chain-activity';
 import { useRecentVouchers } from '@/lib/hooks/use-recent-vouchers';
-import { formatRWF, getCylinderPrice, getVoucherPaymentStatus } from '@/lib/payment';
+import { formatRWF, getAllVoucherPaymentStatuses, getVoucherPaymentStatus } from '@/lib/payment';
 import { CompanyTable } from './company-table';
 import { BranchTable } from './branch-table';
 import { CylinderTable } from './cylinder-table';
@@ -154,19 +154,19 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
   const analytics = useMemo(() => {
     const deposits = transactions.filter((tx) => tx.type === 'deposit');
     const redemptions = transactions.filter((tx) => tx.type === 'redemption');
-    const paidDeposits = deposits
-      .map((tx) => ({
-        tx,
-        payment: getVoucherPaymentStatus(tx.voucherId.toString()),
-      }))
-      .filter(({ payment }) => payment?.status === 'paid');
+    const paidPayments = getAllVoucherPaymentStatuses()
+      .filter((payment) => payment.status === 'paid' && typeof payment.amount === 'number')
+      .sort((a, b) => {
+        const aTime = a.paidAt ? new Date(a.paidAt).getTime() : 0;
+        const bTime = b.paidAt ? new Date(b.paidAt).getTime() : 0;
+        return bTime - aTime;
+      })
+      .slice(0, 50);
     const cancelledDeposits = deposits.filter(
       (tx) => getVoucherPaymentStatus(tx.voucherId.toString())?.status === 'cancelled'
     );
-    const revenue = paidDeposits.reduce((sum, { tx, payment }) => {
-      const recordedAmount = payment?.amount;
-      return sum + (typeof recordedAmount === 'number' ? recordedAmount : getCylinderPrice(tx.cylinderType));
-    }, 0);
+    const revenue = paidPayments.reduce((sum, payment) => sum + (payment.amount ?? 0), 0);
+    const paidVoucherIds = new Set(paidPayments.map((payment) => payment.voucherId));
 
     const companyCounts = new Map<string, number>();
     const cylinderCounts = new Map<string, number>();
@@ -190,8 +190,13 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
 
     return {
       redemptions: redemptions.length,
-      paidDeposits: paidDeposits.length,
-      pendingDeposits: Math.max(deposits.length - paidDeposits.length - cancelledDeposits.length, 0),
+      paidDeposits: paidPayments.length,
+      pendingDeposits: Math.max(
+        deposits.length -
+          deposits.filter((tx) => paidVoucherIds.has(tx.voucherId.toString())).length -
+          cancelledDeposits.length,
+        0
+      ),
       revenue,
       topCompanies,
       cylinderTypes,

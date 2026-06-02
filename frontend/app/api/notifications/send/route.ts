@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import AfricasTalking from 'africastalking';
+import { hasHttpSmsConfig, sendHttpSms, formatRwandaPhoneNumber } from '@/lib/server/httpsms';
 
 interface NotificationRequest {
   voucherId: string;
@@ -47,16 +47,6 @@ const transporter = hasSmtpConfig
       },
     })
   : null;
-
-const hasAfricaTalkingConfig = isConfiguredSecret(process.env.AT_API_KEY) && isConfiguredSecret(process.env.AT_USERNAME);
-const africastalking = hasAfricaTalkingConfig
-  ? AfricasTalking({
-      apiKey: process.env.AT_API_KEY as string,
-      username: process.env.AT_USERNAME as string,
-    })
-  : null;
-
-const sms = africastalking?.SMS ?? null;
 
 function formatExpiryDate(expiresAt: string): string {
   const date = new Date(expiresAt);
@@ -172,7 +162,7 @@ function generateSmsMessage(data: NotificationRequest): string {
 async function sendEmail(data: NotificationRequest): Promise<void> {
   if (!transporter) {
     console.log('SMTP not configured, skipping email notification');
-    return;
+    throw new Error('SMTP credentials are not configured');
   }
 
   const mailOptions: nodemailer.SendMailOptions = {
@@ -201,28 +191,14 @@ async function sendEmail(data: NotificationRequest): Promise<void> {
   await transporter.sendMail(mailOptions);
 }
 
-function formatPhoneNumber(phone: string): string {
-  const cleaned = phone.replace(/\s/g, '');
-  if (cleaned.startsWith('+250')) {
-    return cleaned;
-  }
-  if (cleaned.startsWith('0')) {
-    return '+250' + cleaned.substring(1);
-  }
-  if (cleaned.startsWith('250')) {
-    return '+' + cleaned;
-  }
-  return '+250' + cleaned;
-}
-
 async function sendSms(data: NotificationRequest): Promise<void> {
-  if (!sms) {
-    console.log('Africa\'s Talking not configured, skipping SMS notification');
-    return;
+  if (!hasHttpSmsConfig()) {
+    console.log('httpSMS not configured, skipping SMS notification');
+    throw new Error('httpSMS credentials are not configured');
   }
 
   const message = generateSmsMessage(data);
-  const formattedPhone = formatPhoneNumber(data.customerPhone);
+  const formattedPhone = formatRwandaPhoneNumber(data.customerPhone);
   
   console.log('=== SMS NOTIFICATION ===');
   console.log(`To: ${formattedPhone}`);
@@ -230,14 +206,10 @@ async function sendSms(data: NotificationRequest): Promise<void> {
   console.log('========================');
 
   try {
-    const result = await sms.send({
-      to: [formattedPhone],
-      message: message,
-      from: process.env.AT_SENDER_ID,
-    });
+    const result = await sendHttpSms(formattedPhone, message);
     console.log('SMS sent successfully:', result);
   } catch (error) {
-    console.error('Africa\'s Talking SMS error:', error);
+    console.error('httpSMS error:', error);
     throw error;
   }
 }

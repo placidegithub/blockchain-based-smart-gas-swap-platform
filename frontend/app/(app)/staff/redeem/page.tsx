@@ -19,6 +19,7 @@ import { useCylinderTypes, useCylinderType, useAvailableCylindersAtBranch } from
 import { cn, formatVoucherId, saveVoucherIdMapping } from '@/lib/utils';
 import { formatRWF, getVoucherPaymentStatus } from '@/lib/payment';
 import { getRecentVoucherIds } from '@/lib/hooks/use-recent-vouchers';
+import { saveNotificationStatusRecord } from '@/lib/notification-status';
 
 const RWANDA_DISTRICTS = [
   { id: 0, name: 'Bugesera', province: 'Eastern' },
@@ -216,6 +217,17 @@ export default function RedeemVoucherPage() {
       });
 
       const result = await response.json();
+      saveNotificationStatusRecord({
+        voucherId: formattedVoucherId,
+        eventType: 'voucher_redeemed',
+        customerName: customerInfo.name,
+        customerEmail: customerInfo.email,
+        customerPhone: customerInfo.phoneNumber,
+        email: result.results?.email ?? { sent: false, error: null },
+        sms: result.results?.sms ?? { sent: false, error: null },
+        message: result.message,
+        warning: Boolean(result.warning) || !result.success,
+      });
       setNotificationStatus({
         sent: result.success,
         warning: Boolean(result.warning),
@@ -223,7 +235,18 @@ export default function RedeemVoucherPage() {
           ? 'Customer has been notified via SMS and Email'
           : 'Failed to send notifications'),
       });
-    } catch {
+    } catch (error) {
+      saveNotificationStatusRecord({
+        voucherId: formattedVoucherId,
+        eventType: 'voucher_redeemed',
+        customerName: customerInfo.name,
+        customerEmail: customerInfo.email,
+        customerPhone: customerInfo.phoneNumber,
+        email: { sent: false, error: error instanceof Error ? error.message : 'Network error occurred' },
+        sms: { sent: false, error: error instanceof Error ? error.message : 'Network error occurred' },
+        message: error instanceof Error ? error.message : 'Failed to send notifications',
+        warning: true,
+      });
       setNotificationStatus({
         sent: false,
         message: 'Failed to send notifications',

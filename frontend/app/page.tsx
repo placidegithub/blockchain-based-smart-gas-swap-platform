@@ -55,8 +55,8 @@ export default function LandingPage() {
       <main className="container mx-auto px-4 py-12 md:py-20">
         <section className="text-center max-w-4xl mx-auto mb-16 md:mb-24">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            <span className="text-white">GasSwap - </span>
-            <span className="text-gradient">Blockchain Cylinder Exchange</span>
+            <span className="text-white">Blockchain - </span>
+            <span className="text-gradient">Based Smart Gas Cylinder Swap Platform for Cross-District Exchange in Rwanda</span>
           </h1>
           <p className="text-lg md:text-xl text-slate-400 mb-8 max-w-2xl mx-auto">
             Exchange gas cylinders seamlessly across branches with blockchain-powered vouchers.

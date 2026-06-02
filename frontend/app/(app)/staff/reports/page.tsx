@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { cn, shortenAddress, formatDate } from '@/lib/utils';
 import { PaymentForm } from '@/components/payment';
 import { getCylinderPrice, formatRWF, getVoucherPaymentStatus, markVoucherAsCancelled } from '@/lib/payment';
-import { Banknote, XCircle, Loader2 } from 'lucide-react';
+import { exportTransactionsToCsv } from '@/lib/report-export';
+import { Banknote, XCircle, Loader2, Download } from 'lucide-react';
 
 interface PaymentContext {
   voucherId: bigint;
@@ -97,6 +98,10 @@ export default function ReportsPage() {
   const displayDeposits = selectedBranchId ? Number(branchDeposits) : (stats?.totalVouchers ?? 0);
   const displayRedemptions = selectedBranchId ? Number(branchRedemptions) : (stats?.completedSwaps ?? 0);
   const activeVouchers = displayDeposits - displayRedemptions;
+  const reportTransactions = transactions.map((tx) => ({
+    ...tx,
+    paymentStatus: getPaymentStatusForVoucher(tx.voucherId),
+  }));
 
   if (showPaymentForm && paymentContext) {
     return (
@@ -233,12 +238,26 @@ export default function ReportsPage() {
 
       <Card variant="glow">
         <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
-          <CardDescription>
-            {isLoadingTransactions 
-              ? 'Loading transactions...'
-              : `Showing ${transactions.length} recent transactions`}
-          </CardDescription>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle>Transaction History</CardTitle>
+              <CardDescription>
+                {isLoadingTransactions 
+                  ? 'Loading transactions...'
+                  : `Showing ${transactions.length} recent transactions`}
+              </CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isLoadingTransactions || reportTransactions.length === 0}
+              onClick={() => exportTransactionsToCsv(reportTransactions, 'gasswap-staff-report')}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoadingTransactions ? (

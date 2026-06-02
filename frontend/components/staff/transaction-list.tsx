@@ -5,8 +5,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { cn, shortenAddress, formatDate } from '@/lib/utils';
 import { getCylinderPrice, formatRWF } from '@/lib/payment';
-import { Banknote, XCircle, Loader2, AlertCircle, RotateCcw } from 'lucide-react';
+import { Banknote, XCircle, Loader2, AlertCircle, RotateCcw, Download } from 'lucide-react';
 import { EtherscanTxLink } from '@/components/shared';
+import { exportTransactionsToCsv } from '@/lib/report-export';
 
 export interface Transaction {
   voucherId: bigint;
@@ -118,10 +119,23 @@ export function TransactionList({
   return (
     <Card variant="glow" className={cn('w-full', className)}>
       <CardHeader>
-        <CardTitle>Recent Transactions</CardTitle>
-        <CardDescription>
-          Showing {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
-        </CardDescription>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle>Recent Transactions</CardTitle>
+            <CardDescription>
+              Showing {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+            </CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => exportTransactionsToCsv(transactions, 'gasswap-staff-transactions')}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">

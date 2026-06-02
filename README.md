@@ -1,268 +1,184 @@
-$env:FROM_BLOCK='10800000'; npx hardhat run scripts/check-chain-activity.js --network sepolia
+# Blockchain-Based Smart Gas Swap Platform
 
-# Etherscan links:
+A decentralized gas cylinder exchange platform for Rwanda. Customers deposit a cylinder at one branch, receive a blockchain voucher, and redeem that voucher at another branch of the same gas company.
 
-https://sepolia.etherscan.io/address/0xD12F9740F19Cb95b1a08FBD49F64CC0677853d65
-https://sepolia.etherscan.io/address/0x1407272FA1A1559a27e85AF3d9Ab98614F3F34a1
-https://sepolia.etherscan.io/address/0xee5ec8E8c7d349438A64E7f8c4751Af50F27ED67
-https://sepolia.etherscan.io/address/0x9C24779f33B450a8e562abbCb10cd5E3D0F2728E
-# 🔗 Blockchain Gas Cylinder Swap Platform
+## Current Network
 
-A fully decentralized blockchain-based platform for gas cylinder exchange across districts in Rwanda.
+The current deployed test network is Ethereum Sepolia.
 
-## 📋 Overview
+| Contract | Sepolia Address |
+| --- | --- |
+| CompanyManager | `0x1407272FA1A1559a27e85AF3d9Ab98614F3F34a1` |
+| CylinderRegistry | `0xee5ec8E8c7d349438A64E7f8c4751Af50F27ED67` |
+| VoucherManager | `0xD12F9740F19Cb95b1a08FBD49F64CC0677853d65` |
+| GasSwapPlatform | `0x9C24779f33B450a8e562abbCb10cd5E3D0F2728E` |
 
-This platform enables customers to:
-1. **Deposit** their gas cylinder at any branch
-2. **Receive** a digital voucher (NFT) on the blockchain
-3. **Travel** without carrying the cylinder
-4. **Redeem** the voucher at any branch of the same company
+Useful explorer links:
 
-## 🏗️ Architecture
+- https://sepolia.etherscan.io/address/0x1407272FA1A1559a27e85AF3d9Ab98614F3F34a1
+- https://sepolia.etherscan.io/address/0xee5ec8E8c7d349438A64E7f8c4751Af50F27ED67
+- https://sepolia.etherscan.io/address/0xD12F9740F19Cb95b1a08FBD49F64CC0677853d65
+- https://sepolia.etherscan.io/address/0x9C24779f33B450a8e562abbCb10cd5E3D0F2728E
 
+## Core Workflow
+
+1. A staff member creates a voucher when a customer deposits a cylinder.
+2. The voucher is stored on-chain through the smart contracts.
+3. The customer receives a QR code by email and an SMS notification by phone.
+4. Another branch scans or enters the voucher ID.
+5. The destination branch redeems the voucher and gives the customer a replacement cylinder.
+6. Admins and staff can review transactions, revenue, inventory, notification status, and Etherscan proof links.
+
+## Implemented Features
+
+- Multi-company gas provider support.
+- Branch management across districts.
+- Branch manager wallet assignment.
+- Cylinder registration and branch inventory visibility.
+- Optional cylinder serial entry for deposit and redemption workflows.
+- NFT-style voucher creation and redemption.
+- Public voucher verification page at `/verify`.
+- Transaction explorer page at `/transactions`.
+- Admin analytics dashboard with voucher revenue, activity, and platform coverage.
+- Etherscan links after blockchain transactions.
+- Staff branch inventory dashboard.
+- Notification status tracking for email and phone SMS.
+- CSV export for staff/admin transaction reports.
+- Role-based dashboard routing for admin, staff, and customers.
+
+## Project Structure
+
+```text
+contracts/                    Smart contracts
+scripts/                      Deploy, setup, and maintenance scripts
+test/                         Hardhat tests
+frontend/
+  app/                        Next.js routes and API routes
+  components/                 UI, admin, staff, voucher, and wallet components
+  lib/                        Contract hooks, utilities, notifications, storage
+frontend/public/              Deployed contract address JSON
+hardhat.config.js             Network and deployment configuration
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    SMART CONTRACTS                          │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────────┐  ┌─────────────────┐                   │
-│  │ GasSwapPlatform │──│ CompanyManager  │                   │
-│  │   (Main Entry)  │  │  (Companies &   │                   │
-│  └────────┬────────┘  │   Branches)     │                   │
-│           │           └─────────────────┘                   │
-│           │                                                 │
-│  ┌────────┴────────┐  ┌─────────────────┐                   │
-│  │ VoucherManager  │  │ CylinderRegistry│                   │
-│  │  (NFT Vouchers) │  │  (NFT Cylinders)│                   │
-│  └─────────────────┘  └─────────────────┘                   │
-│                                                             │
-│  Network: Polygon (Low-cost, Fast transactions)             │
-└─────────────────────────────────────────────────────────────┘
-```
 
-## 📦 Smart Contracts
+## Prerequisites
 
-| Contract | Description |
-|----------|-------------|
-| `GasSwapPlatform.sol` | Main orchestrating contract |
-| `CompanyManager.sol` | Manages companies, branches, cylinder types |
-| `CylinderRegistry.sol` | NFT registry for physical cylinders |
-| `VoucherManager.sol` | NFT vouchers for cylinder exchange |
-| `GasSwapAccessControl.sol` | Role-based access control |
+- Node.js 18+
+- npm
+- MetaMask
+- Sepolia test ETH for admin/staff wallets
+- SMTP credentials for email notifications
+- httpSMS account and Android app for phone SMS notifications
 
-## 🚀 Quick Start
+## Environment Setup
 
-### Prerequisites
-
-- Node.js v18+
-- npm or yarn
-- MetaMask wallet (browser extension)
-
-### Installation
+Copy the example file and fill in real values:
 
 ```bash
-# Navigate to blockchain platform directory
-cd blockchain-gas-swap-platform
-
-# Install dependencies
-npm install
-
-# Copy environment file and configure
 cp .env.example .env
-# Edit .env with your configuration
 ```
 
-### Compile Contracts
+For the frontend API routes, create `frontend/.env.local` with notification credentials:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USERNAME=your_email@gmail.com
+SMTP_PASSWORD=your_email_app_password
+SMTP_FROM=noreply@gasswap.rw
+
+HTTPSMS_API_KEY=your_httpsms_api_key
+HTTPSMS_FROM=+2507XXXXXXXX
+```
+
+For httpSMS, install the httpSMS Android app, sign in with your API key, and make sure the sender phone number in `HTTPSMS_FROM` is the same connected device number.
+
+## Install
+
+Install root dependencies:
+
+```bash
+npm install
+```
+
+Install frontend dependencies:
+
+```bash
+cd frontend
+npm install
+```
+
+## Compile Contracts
 
 ```bash
 npm run compile
 ```
 
-### Run Tests
+## Run Tests
 
 ```bash
 npm run test
-
-# With gas reporting
-npm run test:gas
 ```
 
-### Local Deployment (Development)
+## Deploy to Sepolia
 
-**Terminal 1: Start local blockchain**
+Make sure `.env` contains `SEPOLIA_RPC_URL`, `PRIVATE_KEY`, and optionally `ETHERSCAN_API_KEY`.
+
 ```bash
-npm run node
+npm run deploy:sepolia
 ```
 
-**Terminal 2: Deploy contracts**
-```bash
-npm run deploy:local
+After deployment, confirm the generated addresses are copied into:
 
-# Setup sample data (companies, branches, cylinders)
-npm run setup:local
-```
+- `frontend/public/deployed-addresses.json`
+- `frontend/lib/contracts/deployed-addresses.json`
 
-### Start Frontend
+## Start Frontend
 
-**Terminal 3: Run the frontend**
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 
-Open http://localhost:3000 in your browser.
+Open:
 
-### Connect MetaMask to Local Network
-
-1. Open MetaMask
-2. Click network dropdown → "Add Network"
-3. Add new network:
-   - Network Name: `Localhost 8545`
-   - RPC URL: `http://127.0.0.1:8545`
-   - Chain ID: `31337`
-   - Currency Symbol: `ETH`
-4. Import a test account using private key from Hardhat output
-
-## 🌐 Polygon Mumbai Testnet Deployment
-
-1. Get test MATIC from [Polygon Faucet](https://faucet.polygon.technology/)
-2. Configure `.env`:
-   ```
-   POLYGON_MUMBAI_RPC_URL=https://rpc-mumbai.maticvigil.com
-   PRIVATE_KEY=your_private_key
-   ```
-3. Deploy:
-   ```bash
-   npm run deploy:mumbai
-   ```
-4. Update frontend contract addresses in `frontend/.env.local`
-
-## 🎯 Features
-
-### ✅ Implemented
-
-- [x] Multi-company support (Kigaligas, Hash Gas, Meru Gas, Jibu Gas, etc.)
-- [x] Multiple cylinder sizes (6kg, 12kg, 15kg)
-- [x] Branch management across districts
-- [x] NFT-based cylinder tracking
-- [x] NFT voucher creation and redemption
-- [x] 30-day voucher validity
-- [x] Role-based access control
-- [x] Company balance tracking
-- [x] Emergency pause functionality
-
-### ✅ Frontend (Next.js dApp)
-
-- [x] Landing page with platform stats
-- [x] MetaMask wallet connection
-- [x] Customer dashboard with voucher list
-- [x] Staff interface for deposits/redemptions
-- [x] Admin panel for company/branch management
-- [x] QR code generation for vouchers
-- [x] QR code scanner for redemption
-- [x] Role-based access guards
-
-## 📊 Gas Costs (Estimated on Polygon)
-
-| Operation | Gas Units | Cost (MATIC) | Cost (USD) |
-|-----------|-----------|--------------|------------|
-| Register Cylinder | ~150,000 | 0.015 | ~$0.02 |
-| Create Voucher | ~200,000 | 0.020 | ~$0.03 |
-| Redeem Voucher | ~180,000 | 0.018 | ~$0.02 |
-
-## 🔐 Security
-
-- OpenZeppelin contracts for battle-tested security
-- Role-based access control
-- Reentrancy protection
-- Pausable for emergencies
-- No external calls to untrusted contracts
-
-## 📁 Project Structure
-
-```
-blockchain-gas-swap-platform/
-├── contracts/                  # Solidity smart contracts
-│   ├── GasSwapPlatform.sol
-│   ├── CompanyManager.sol
-│   ├── CylinderRegistry.sol
-│   ├── VoucherManager.sol
-│   └── GasSwapAccessControl.sol
-├── scripts/                    # Deployment scripts
-│   ├── deploy.js
-│   └── setup-sample-data.js
-├── test/                       # Contract tests
-│   └── VoucherManager.test.js
-├── frontend/                   # Next.js dApp
-│   ├── app/                    # Next.js App Router pages
-│   │   ├── (app)/              # Protected routes
-│   │   │   ├── dashboard/      # Customer dashboard
-│   │   │   ├── staff/          # Staff operations
-│   │   │   └── admin/          # Admin panel
-│   │   └── (public)/           # Public routes
-│   │       └── verify/         # Voucher verification
-│   ├── components/             # React components
-│   │   ├── admin/              # Admin components
-│   │   ├── layout/             # Layout components
-│   │   ├── providers/          # Context providers
-│   │   ├── staff/              # Staff components
-│   │   ├── ui/                 # UI primitives
-│   │   ├── vouchers/           # Voucher components
-│   │   └── wallet/             # Wallet components
-│   └── lib/                    # Utilities and hooks
-│       ├── contracts/          # Contract ABIs and addresses
-│       └── hooks/              # React hooks for contracts
-├── hardhat.config.js
-├── package.json
-└── README.md
+```text
+http://localhost:3000
 ```
 
-## 🧪 Testing
+## Useful Commands
+
+Check recent on-chain activity:
+
+```powershell
+$env:FROM_BLOCK='10800000'; npx hardhat run scripts/check-chain-activity.js --network sepolia
+```
+
+Run TypeScript validation:
 
 ```bash
-# Run all tests
-npm run test
-
-# Run specific test file
-npx hardhat test test/VoucherManager.test.js
-
-# Run with verbose output
-npx hardhat test --verbose
-
-# Run with gas reporting
-npm run test:gas
+cd frontend
+npx tsc --noEmit
 ```
 
-## 🔧 Development Workflow
+## Notification Notes
 
-1. **Smart Contract Changes**
-   - Edit contracts in `contracts/`
-   - Run `npm run compile`
-   - Run `npm run test`
-   - Deploy with `npm run deploy:local`
+Email notifications are sent from the Next.js API routes using SMTP.
 
-2. **Frontend Changes**
-   - Edit components in `frontend/`
-   - Run `npm run dev` in frontend directory
-   - Build with `npm run build`
+Phone SMS notifications are sent through httpSMS:
 
-3. **Update Contract ABIs**
-   - After compiling, copy ABIs from `artifacts/contracts/`
-   - Paste to `frontend/lib/contracts/abis/`
+- API endpoint: `https://api.httpsms.com/v1/messages/send`
+- Authentication header: `x-api-key`
+- Required payload values: `content`, `from`, and `to`
 
-## 📜 License
+Staff can review recent notification delivery status directly from the staff dashboard.
 
-MIT License - See [LICENSE](LICENSE) for details.
+## Security Notes
 
-## 👥 Contributors
+- Never commit `.env`, `frontend/.env.local`, private keys, or generated branch wallet private keys.
+- `staff-registry.json` contains generated manager wallet data and must stay private.
+- Keep Sepolia test ETH in staff wallets so branch workflows can confirm MetaMask transactions.
 
-- Capstone Project Team
+## License
 
-## 📞 Support
-
-For questions or issues, please open a GitHub issue.
-
----
-
-**Built with ❤️ for Rwanda's gas distribution sector**
+MIT

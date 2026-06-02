@@ -131,10 +131,15 @@ export interface VoucherPaymentData {
   companyId?: string;
 }
 
+export interface VoucherPaymentRecord extends VoucherPaymentData {
+  voucherId: string;
+}
+
 export function saveVoucherPaymentStatus(voucherId: string, data: VoucherPaymentData): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(`voucher_payment_${voucherId}`, JSON.stringify(data));
+    window.dispatchEvent(new CustomEvent('gasswap_payment_added', { detail: { voucherId, status: data.status } }));
   } catch (e) {
     console.error('Failed to save voucher payment status:', e);
   }
@@ -151,6 +156,31 @@ export function getVoucherPaymentStatus(voucherId: string): VoucherPaymentData |
     console.error('Failed to get voucher payment status:', e);
   }
   return null;
+}
+
+export function getAllVoucherPaymentStatuses(): VoucherPaymentRecord[] {
+  if (typeof window === 'undefined') return [];
+
+  const records: VoucherPaymentRecord[] = [];
+
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith('voucher_payment_')) continue;
+
+      const stored = localStorage.getItem(key);
+      if (!stored) continue;
+
+      records.push({
+        voucherId: key.replace('voucher_payment_', ''),
+        ...JSON.parse(stored),
+      } as VoucherPaymentRecord);
+    }
+  } catch (e) {
+    console.error('Failed to get voucher payment statuses:', e);
+  }
+
+  return records;
 }
 
 export function markVoucherAsPaid(voucherId: string, transactionRef: string, method: 'cash' | 'momo', amount?: number, customerPhone?: string, walletAddress?: string, branchId?: string, companyId?: string): boolean {

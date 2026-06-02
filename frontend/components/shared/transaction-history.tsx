@@ -9,7 +9,8 @@ import { isVoucherAlreadyPaid } from '@/lib/fund-storage';
 import { useRecentVouchers } from '@/lib/hooks';
 import { PaymentForm } from '@/components/payment';
 import { EtherscanTxLink } from './etherscan-link';
-import { History, Banknote, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { exportTransactionsToCsv } from '@/lib/report-export';
+import { History, Banknote, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp, Download } from 'lucide-react';
 
 interface TransactionHistoryProps {
   title?: string;
@@ -216,13 +217,27 @@ export function TransactionHistory({
     <Card variant="glow" className={cn('w-full', className)}>
       {VoucherMappers}
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <History className="h-5 w-5 text-cyan-400" />
-          {title}
-        </CardTitle>
-        <CardDescription>
-          {description} • {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
-        </CardDescription>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5 text-cyan-400" />
+              {title}
+            </CardTitle>
+            <CardDescription>
+              {description} • {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+            </CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={transactions.length === 0}
+            onClick={() => exportTransactionsToCsv(transactions, 'gasswap-transactions')}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-2 max-h-[600px] overflow-y-auto">
