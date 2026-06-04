@@ -195,6 +195,25 @@ export function useBranchStats(branchId: bigint | undefined) {
   };
 }
 
+export function useCompanyBalance(companyId: bigint | undefined) {
+  const { data, isLoading, error, refetch } = useVoucherManagerRead(
+    "getCompanyBalance",
+    [companyId],
+    companyId !== undefined && companyId > 0n
+  );
+
+  const balance = data as [bigint, bigint, bigint] | undefined;
+
+  return {
+    totalDeposits: balance?.[0] ?? 0n,
+    totalRedemptions: balance?.[1] ?? 0n,
+    netBalance: balance?.[2] ?? 0n,
+    isLoading,
+    error,
+    refetch,
+  };
+}
+
 function mapVoucherStatus(status: number): "active" | "redeemed" | "expired" {
   switch (status) {
     case VoucherStatus.ACTIVE:

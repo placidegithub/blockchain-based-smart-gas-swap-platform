@@ -153,20 +153,30 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
 
   const analytics = useMemo(() => {
     const deposits = transactions.filter((tx) => tx.type === 'deposit');
-    const redemptions = transactions.filter((tx) => tx.type === 'redemption');
+    const totalVouchers = stats?.totalVouchers ?? 0;
+    const completedSwaps = stats?.completedSwaps ?? 0;
+    const validCurrentVoucherId = (voucherId: string) => {
+      const numericId = Number(voucherId);
+      return Number.isInteger(numericId) && numericId > 0 && numericId <= totalVouchers;
+    };
     const paidPayments = getAllVoucherPaymentStatuses()
-      .filter((payment) => payment.status === 'paid' && typeof payment.amount === 'number')
+      .filter(
+        (payment) =>
+          payment.status === 'paid' &&
+          typeof payment.amount === 'number' &&
+          validCurrentVoucherId(payment.voucherId)
+      )
       .sort((a, b) => {
         const aTime = a.paidAt ? new Date(a.paidAt).getTime() : 0;
         const bTime = b.paidAt ? new Date(b.paidAt).getTime() : 0;
         return bTime - aTime;
       })
-      .slice(0, 50);
+      .slice(0, totalVouchers || 50);
     const cancelledDeposits = deposits.filter(
       (tx) => getVoucherPaymentStatus(tx.voucherId.toString())?.status === 'cancelled'
     );
     const revenue = paidPayments.reduce((sum, payment) => sum + (payment.amount ?? 0), 0);
-    const paidVoucherIds = new Set(paidPayments.map((payment) => payment.voucherId));
+    const pendingPayments = Math.max(totalVouchers - completedSwaps - paidPayments.length - cancelledDeposits.length, 0);
 
     const companyCounts = new Map<string, number>();
     const cylinderCounts = new Map<string, number>();
@@ -189,20 +199,15 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
       .sort((a, b) => b.count - a.count);
 
     return {
-      redemptions: redemptions.length,
+      redemptions: completedSwaps,
       paidDeposits: paidPayments.length,
-      pendingDeposits: Math.max(
-        deposits.length -
-          deposits.filter((tx) => paidVoucherIds.has(tx.voucherId.toString())).length -
-          cancelledDeposits.length,
-        0
-      ),
+      pendingDeposits: pendingPayments,
       revenue,
       topCompanies,
       cylinderTypes,
-      swapRate: deposits.length > 0 ? (redemptions.length / deposits.length) * 100 : 0,
+      swapRate: totalVouchers > 0 ? (completedSwaps / totalVouchers) * 100 : 0,
     };
-  }, [transactions, paymentRefreshKey]);
+  }, [transactions, paymentRefreshKey, stats?.totalVouchers, stats?.completedSwaps]);
 
   const totalEntityCount =
     (stats?.totalCompanies ?? 0) +
@@ -372,7 +377,7 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
           }
           color="purple"
         />
-        <StatCard
+        {/* <StatCard
           title="Cylinders"
           value={isLoadingStats ? '-' : stats?.totalCylinders ?? 0}
           icon={
@@ -381,7 +386,7 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
             </svg>
           }
           color="blue"
-        />
+        /> */}
         <StatCard
           title="Vouchers"
           value={isLoadingStats ? '-' : stats?.totalVouchers ?? 0}
@@ -407,14 +412,14 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <InsightCard
           title="Collected Voucher Revenue"
-          value={isLoadingTransactions ? '-' : formatRWF(analytics.revenue)}
-          detail={`${analytics.paidDeposits} paid recent deposits, ${analytics.pendingDeposits} pending`}
+          value={isLoadingStats ? '-' : formatRWF(analytics.revenue)}
+          detail={`${analytics.paidDeposits} paid current vouchers, ${analytics.pendingDeposits} unpaid active`}
           icon={<TrendingUp className="h-5 w-5" />}
         />
         <InsightCard
-          title="Recent Swap Rate"
-          value={isLoadingTransactions ? '-' : `${analytics.swapRate.toFixed(1)}%`}
-          detail={`${analytics.redemptions} redemptions from recent voucher feed`}
+          title="On-chain Swap Rate"
+          value={isLoadingStats ? '-' : `${analytics.swapRate.toFixed(1)}%`}
+          detail={`${analytics.redemptions} completed swaps from platform contract`}
           icon={<CheckCircle2 className="h-5 w-5" />}
         />
         <InsightCard

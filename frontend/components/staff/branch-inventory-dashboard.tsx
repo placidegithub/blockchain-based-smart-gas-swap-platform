@@ -10,6 +10,7 @@ import {
   useAvailableCylindersAtBranch,
   useCylinderBySerial,
 } from '@/lib/hooks/use-cylinders';
+import { useBranchStats } from '@/lib/hooks/use-recent-vouchers';
 import type { Transaction } from './transaction-list';
 import { Box, CheckCircle2, ClipboardList, PackageSearch, RefreshCw, Repeat2 } from 'lucide-react';
 
@@ -86,8 +87,6 @@ export function BranchInventoryDashboard({
   branchName,
   companyName,
   district,
-  transactions,
-  isLoadingTransactions,
   className,
 }: BranchInventoryDashboardProps) {
   const {
@@ -95,15 +94,15 @@ export function BranchInventoryDashboard({
     isLoading: isLoadingAvailable,
     refetch,
   } = useAvailableCylindersAtBranch(branchId);
+  const {
+    deposits: branchDeposits,
+    redemptions: branchRedemptions,
+    isLoading: isLoadingBranchStats,
+  } = useBranchStats(branchId);
 
-  const branchTransactions = useMemo(() => {
-    if (!branchName) return transactions;
-    return transactions.filter((tx) => tx.branchName === branchName);
-  }, [branchName, transactions]);
-
-  const deposits = branchTransactions.filter((tx) => tx.type === 'deposit');
-  const redemptions = branchTransactions.filter((tx) => tx.type === 'redemption');
-  const activeVouchers = branchTransactions.filter((tx) => tx.status === 'active');
+  const deposits = Number(branchDeposits);
+  const redemptions = Number(branchRedemptions);
+  const activeVouchers = Math.max(deposits - redemptions, 0);
 
   const sizeCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -146,21 +145,21 @@ export function BranchInventoryDashboard({
               icon={<CheckCircle2 className="h-5 w-5" />}
             />
             <StatCard
-              title="Recent Deposits"
-              value={isLoadingTransactions ? '-' : deposits.length}
-              detail="Recent vouchers created here"
+              title="Branch Deposits"
+              value={isLoadingBranchStats ? '-' : deposits}
+              detail="Vouchers created at this branch"
               icon={<ClipboardList className="h-5 w-5" />}
             />
             <StatCard
-              title="Recent Redemptions"
-              value={isLoadingTransactions ? '-' : redemptions.length}
-              detail="Recent swaps completed"
+              title="Branch Redemptions"
+              value={isLoadingBranchStats ? '-' : redemptions}
+              detail="Swaps completed at this branch"
               icon={<Repeat2 className="h-5 w-5" />}
             />
             <StatCard
               title="Active Vouchers"
-              value={isLoadingTransactions ? '-' : activeVouchers.length}
-              detail="Open vouchers from recent activity"
+              value={isLoadingBranchStats ? '-' : activeVouchers}
+              detail="Open vouchers from branch totals"
               icon={<PackageSearch className="h-5 w-5" />}
             />
           </div>

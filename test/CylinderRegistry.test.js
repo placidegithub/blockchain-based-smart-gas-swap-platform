@@ -144,10 +144,12 @@ describe("CylinderRegistry", function () {
     });
 
     it("Should record status change in history", async function () {
-      await cylinderRegistry.connect(staff).updateCylinderStatus(1, 2, 1);
+      await cylinderRegistry.connect(staff).updateCylinderStatus(1, 2, 2);
       
       const history = await cylinderRegistry.getCylinderHistory(1);
       expect(history.length).to.equal(1);
+      expect(history[0].fromBranchId).to.equal(1);
+      expect(history[0].toBranchId).to.equal(2);
     });
   });
 

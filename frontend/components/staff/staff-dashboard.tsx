@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRoles, useCompanies, useBranches, useBranch, useRecentVouchers, useCurrentStaffInfo } from '@/lib/hooks';
+import { useRoles, useCompanies, useBranches, useBranch, useRecentVouchers, useCurrentStaffInfo, useBranchStats, useCompanyBalance, usePlatformStatsFormatted } from '@/lib/hooks';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -44,6 +44,16 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
   const { branchIds } = useBranches(selectedCompanyId);
   const { transactions, isLoading: isLoadingTransactions, VoucherMappers } = useRecentVouchers(50);
   const { branch: staffBranch, company: staffCompany, companyId: staffCompanyId, isLoading: isLoadingStaffInfo, isStaffAssigned } = useCurrentStaffInfo();
+  const effectiveCompanyId = !isPlatformAdmin && staffCompanyId ? staffCompanyId : selectedCompanyId;
+  const effectiveBranchId = isPlatformAdmin ? selectedBranchId : undefined;
+  const { deposits: branchDeposits, redemptions: branchRedemptions, isLoading: isLoadingBranchStats } = useBranchStats(effectiveBranchId);
+  const {
+    totalDeposits: companyDeposits,
+    totalRedemptions: companyRedemptions,
+    netBalance: companyActiveVouchers,
+    isLoading: isLoadingCompanyStats,
+  } = useCompanyBalance(effectiveCompanyId);
+  const { stats: platformStats, isLoading: isLoadingPlatformStats } = usePlatformStatsFormatted();
 
   useEffect(() => {
     if (isStaffAssigned && !isPlatformAdmin && staffBranch && staffCompany) {
@@ -320,11 +330,41 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
     );
   }
 
-  // Derive stats from actual filtered transactions so numbers match what the user sees
-  const totalDeposits = filteredTransactions.filter(tx => tx.type === 'deposit').length;
-  const totalRedemptions = filteredTransactions.filter(tx => tx.type === 'redemption').length;
-  const totalVouchers = filteredTransactions.length;
-  const totalCompletedSwaps = filteredTransactions.filter(tx => tx.status === 'redeemed').length;
+  const statsScope: 'branch' | 'company' | 'platform' = selectedBranchId && isPlatformAdmin
+    ? 'branch'
+    : effectiveCompanyId
+      ? 'company'
+      : 'platform';
+
+  const statsLoading = statsScope === 'branch'
+    ? isLoadingBranchStats
+    : statsScope === 'company'
+      ? isLoadingCompanyStats
+      : isLoadingPlatformStats;
+
+  const totalDeposits = statsScope === 'branch'
+    ? Number(branchDeposits)
+    : statsScope === 'company'
+      ? Number(companyDeposits)
+      : platformStats?.totalVouchers ?? 0;
+
+  const totalRedemptions = statsScope === 'branch'
+    ? Number(branchRedemptions)
+    : statsScope === 'company'
+      ? Number(companyRedemptions)
+      : platformStats?.completedSwaps ?? 0;
+
+  const activeVouchers = statsScope === 'company'
+    ? Number(companyActiveVouchers)
+    : Math.max(totalDeposits - totalRedemptions, 0);
+
+  const completedSwaps = totalRedemptions;
+
+  const statTitlePrefix = statsScope === 'branch'
+    ? 'Branch'
+    : statsScope === 'company'
+      ? 'Company'
+      : 'Total';
 
   return (
     <div className={cn('w-full space-y-6', className)}>
@@ -379,8 +419,8 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title={isStaffView ? "Company Deposits" : (selectedBranchId ? "Branch Deposits" : "Total Deposits")}
-          value={isLoadingTransactions ? '-' : totalDeposits}
+          title={`${statTitlePrefix} Deposits`}
+          value={statsLoading ? '-' : totalDeposits}
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
@@ -389,8 +429,8 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
           color="cyan"
         />
         <StatCard
-          title={isStaffView ? "Company Redemptions" : (selectedBranchId ? "Branch Redemptions" : "Total Redemptions")}
-          value={isLoadingTransactions ? '-' : totalRedemptions}
+          title={`${statTitlePrefix} Redemptions`}
+          value={statsLoading ? '-' : totalRedemptions}
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
@@ -399,8 +439,8 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
           color="purple"
         />
         <StatCard
-          title={isStaffView ? "Company Vouchers" : "Total Vouchers"}
-          value={isLoadingTransactions ? '-' : totalVouchers}
+          title={`${statTitlePrefix} Active Vouchers`}
+          value={statsLoading ? '-' : activeVouchers}
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
@@ -409,8 +449,8 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
           color="blue"
         />
         <StatCard
-          title={isStaffView ? "Company Swaps" : "Completed Swaps"}
-          value={isLoadingTransactions ? '-' : totalCompletedSwaps}
+          title={`${statTitlePrefix} Swaps`}
+          value={statsLoading ? '-' : completedSwaps}
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />

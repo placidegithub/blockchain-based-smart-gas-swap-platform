@@ -224,10 +224,10 @@ export default function ReportsPage() {
               <p className="text-2xl font-bold text-foreground">{stats?.totalBranches ?? 0}</p>
               <p className="text-sm text-muted-foreground">Branches</p>
             </div>
-            <div className="text-center p-4 bg-background/50 rounded-lg border border-border">
+            {/* <div className="text-center p-4 bg-background/50 rounded-lg border border-border">
               <p className="text-2xl font-bold text-foreground">{stats?.totalCylinders ?? 0}</p>
               <p className="text-sm text-muted-foreground">Registered Cylinders</p>
-            </div>
+            </div> */}
             <div className="text-center p-4 bg-background/50 rounded-lg border border-border">
               <p className="text-2xl font-bold text-foreground">{total}</p>
               <p className="text-sm text-muted-foreground">Total Vouchers</p>

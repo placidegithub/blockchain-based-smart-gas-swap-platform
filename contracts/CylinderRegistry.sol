@@ -149,13 +149,14 @@ contract CylinderRegistry is ERC721, ERC721Enumerable, AccessControl, Pausable {
         
         CylinderData storage cylinder = cylinderData[tokenId];
         CylinderStatus oldStatus = cylinder.status;
+        uint256 previousBranchId = cylinder.currentBranchId;
         
         cylinder.status = newStatus;
         cylinder.currentBranchId = branchId;
         
         // Record in history
         cylinderHistory[tokenId].push(TransferRecord({
-            fromBranchId: cylinder.currentBranchId,
+            fromBranchId: previousBranchId,
             toBranchId: branchId,
             initiatedBy: msg.sender,
             timestamp: block.timestamp,
