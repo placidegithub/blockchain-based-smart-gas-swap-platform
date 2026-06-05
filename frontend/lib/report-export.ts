@@ -10,8 +10,13 @@ export interface ExportableTransaction {
   cylinderType: string;
   cylinderSerial?: string;
   cylinderCondition?: 'empty' | 'full';
+  companyId?: bigint;
   companyName?: string;
   branchName?: string;
+  sourceBranchName?: string;
+  redemptionBranchName?: string;
+  depositedAt?: number;
+  redeemedAt?: number;
   timestamp: number;
   status: 'active' | 'redeemed' | 'expired';
   paymentStatus?: 'unpaid' | 'paid' | 'cancelled';
@@ -47,6 +52,12 @@ function getPaymentAmount(tx: ExportableTransaction): number {
   return getCylinderPrice(tx.cylinderType);
 }
 
+function getCylinderConditionLabel(tx: ExportableTransaction): string {
+  if (tx.cylinderCondition === 'full') return 'Full Cylinder';
+  if (tx.cylinderCondition === 'empty') return 'Empty Cylinder';
+  return '';
+}
+
 export function exportTransactionsToCsv(
   transactions: ExportableTransaction[],
   filenamePrefix = 'gasswap-transactions'
@@ -63,12 +74,17 @@ export function exportTransactionsToCsv(
     'Customer Email',
     'Customer Phone',
     'Customer Wallet',
+    'Company ID',
     'Company',
-    'Branch',
+    'Transaction Branch',
+    'Source Branch',
+    'Redemption Branch',
     'Cylinder Type',
     'Cylinder Serial',
     'Cylinder Condition',
-    'Date',
+    'Transaction Date',
+    'Deposited At',
+    'Redeemed At',
     'Transaction Hash',
   ];
 
@@ -82,12 +98,17 @@ export function exportTransactionsToCsv(
     tx.customerEmail,
     tx.customerPhone,
     tx.customerAddress,
+    tx.companyId,
     tx.companyName,
     tx.branchName,
+    tx.sourceBranchName,
+    tx.redemptionBranchName,
     tx.cylinderType,
     tx.cylinderSerial,
-    tx.cylinderCondition,
+    getCylinderConditionLabel(tx),
     getCsvDate(tx.timestamp),
+    getCsvDate(tx.depositedAt ?? 0),
+    getCsvDate(tx.redeemedAt ?? 0),
     tx.txHash,
   ]);
 

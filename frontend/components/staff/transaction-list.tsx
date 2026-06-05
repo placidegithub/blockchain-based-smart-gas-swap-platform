@@ -19,8 +19,15 @@ export interface Transaction {
   cylinderType: string;
   cylinderSerial?: string;
   cylinderCondition?: 'empty' | 'full';
+  companyId?: bigint;
   companyName?: string;
   branchName?: string;
+  sourceBranchId?: bigint;
+  sourceBranchName?: string;
+  redemptionBranchId?: bigint;
+  redemptionBranchName?: string;
+  depositedAt?: number;
+  redeemedAt?: number;
   timestamp: number;
   status: 'active' | 'redeemed' | 'expired';
   paymentStatus?: 'unpaid' | 'paid' | 'cancelled';
@@ -54,6 +61,12 @@ const paymentStatusColors = {
   paid: 'text-green-400 bg-green-500/10 border-green-500/30',
   cancelled: 'text-gray-400 bg-gray-500/10 border-gray-500/30',
 };
+
+function formatCylinderCondition(condition?: 'empty' | 'full'): string | null {
+  if (condition === 'full') return 'Full Cylinder';
+  if (condition === 'empty') return 'Empty Cylinder';
+  return null;
+}
 
 export function TransactionList({
   transactions,
@@ -142,6 +155,7 @@ export function TransactionList({
           {transactions.map((tx) => {
             const txKey = `${tx.voucherId.toString()}-${tx.type}`;
             const isExpanded = expandedTxId === txKey;
+            const conditionLabel = formatCylinderCondition(tx.cylinderCondition);
 
             return (
               <div
@@ -196,6 +210,14 @@ export function TransactionList({
                       <div className="text-xs text-muted-foreground">
                         {tx.cylinderType} • {formatRWF(getCylinderPrice(tx.cylinderType))}
                       </div>
+                      {conditionLabel && (
+                        <div className={cn(
+                          'text-xs font-medium',
+                          tx.cylinderCondition === 'full' ? 'text-green-400' : 'text-orange-400'
+                        )}>
+                          {conditionLabel}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -333,8 +355,20 @@ export function TransactionList({
                       )}
                       {tx.branchName && (
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Branch:</span>
+                          <span className="text-muted-foreground">Transaction Branch:</span>
                           <span>{tx.branchName}</span>
+                        </div>
+                      )}
+                      {tx.sourceBranchName && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Source Branch:</span>
+                          <span>{tx.sourceBranchName}</span>
+                        </div>
+                      )}
+                      {tx.redemptionBranchName && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Destination Branch:</span>
+                          <span>{tx.redemptionBranchName}</span>
                         </div>
                       )}
                       {tx.cylinderSerial && (

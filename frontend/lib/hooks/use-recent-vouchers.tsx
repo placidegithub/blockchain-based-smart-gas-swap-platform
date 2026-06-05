@@ -98,8 +98,15 @@ export interface RecentTransaction {
   cylinderType: string;
   cylinderSerial?: string;
   cylinderCondition?: "empty" | "full";
+  companyId?: bigint;
   companyName?: string;
   branchName?: string;
+  sourceBranchId?: bigint;
+  sourceBranchName?: string;
+  redemptionBranchId?: bigint;
+  redemptionBranchName?: string;
+  depositedAt?: number;
+  redeemedAt?: number;
   timestamp: number;
   status: "active" | "redeemed" | "expired";
   txHash?: string;
@@ -228,6 +235,34 @@ function mapVoucherStatus(status: number): "active" | "redeemed" | "expired" {
   }
 }
 
+function readCylinderCondition(
+  voucherId: bigint,
+  cylinderSerial?: string
+): "empty" | "full" | undefined {
+  if (typeof window === "undefined") return undefined;
+
+  const storageKeys = [`voucher_meta_${voucherId.toString()}`];
+  if (cylinderSerial) {
+    storageKeys.push(`voucher_serial_${cylinderSerial}`);
+  }
+
+  for (const key of storageKeys) {
+    try {
+      const stored = localStorage.getItem(key);
+      if (!stored) continue;
+
+      const metadata = JSON.parse(stored) as { cylinderCondition?: unknown };
+      if (metadata.cylinderCondition === "empty" || metadata.cylinderCondition === "full") {
+        return metadata.cylinderCondition;
+      }
+    } catch {
+      // Ignore malformed local metadata and continue with the next key.
+    }
+  }
+
+  return undefined;
+}
+
 function VoucherTransactionMapper({
   voucherId,
   onTransaction,
@@ -239,7 +274,12 @@ function VoucherTransactionMapper({
   const { cylinderType } = useCylinderType(voucher?.cylinderTypeId);
   const { customerInfo } = useVoucherCustomerInfo(voucherId);
   const { company } = useCompany(voucher?.companyId);
-  const { branch } = useBranch(voucher?.sourceBranchId);
+  const { branch: sourceBranch } = useBranch(voucher?.sourceBranchId);
+  const { branch: redemptionBranch } = useBranch(
+    voucher?.redemptionBranchId && voucher.redemptionBranchId > 0n
+      ? voucher.redemptionBranchId
+      : undefined
+  );
   const { cylinder } = useCylinder(voucher?.depositedCylinderId);
   const onTransactionRef = useRef(onTransaction);
   onTransactionRef.current = onTransaction;
@@ -255,35 +295,26 @@ function VoucherTransactionMapper({
   const customerEmail = customerInfo?.email;
   const customerPhone = customerInfo?.phoneNumber;
   const companyName = company?.name;
-  const branchName = branch?.name;
+  const sourceBranchId = voucher?.sourceBranchId;
+  const sourceBranchName = sourceBranch?.name;
+  const redemptionBranchId = voucher?.redemptionBranchId;
+  const redemptionBranchName = redemptionBranch?.name;
   const cylinderSerial = cylinder?.serialNumber;
+  const cylinderCondition = voucher ? readCylinderCondition(voucher.id, cylinderSerial) : undefined;
 
   useEffect(() => {
     if (voucher && !isLoading) {
       const isRedeemed = voucherStatus === VoucherStatus.REDEEMED;
-      
-      // Try to get condition from localStorage (using cylinder serial as key)
-      let cylinderCondition: "empty" | "full" | undefined;
-      if (cylinderSerial && typeof window !== "undefined") {
-        try {
-          const stored = localStorage.getItem(`voucher_serial_${cylinderSerial}`);
-          if (stored) {
-            const metadata = JSON.parse(stored);
-            cylinderCondition = metadata.cylinderCondition;
-          }
-        } catch (e) {
-          // Ignore localStorage errors
-        }
-      }
-      
+
       // Build a fingerprint to avoid emitting the same data repeatedly
-      const fingerprint = `${voucherId}-${voucherStatus}-${cylinderTypeName}-${customerName}-${companyName}-${branchName}-${cylinderSerial}`;
+      const fingerprint = `${voucherId}-${voucherStatus}-${cylinderTypeName}-${customerName}-${companyName}-${sourceBranchName}-${redemptionBranchName}-${cylinderSerial}-${cylinderCondition}`;
       if (fingerprint === lastEmittedRef.current) return;
       lastEmittedRef.current = fingerprint;
 
-      const tx: RecentTransaction = {
+      const depositedAt = Number(voucherCreatedAt);
+      const redeemedAt = Number(voucherRedeemedAt);
+      const baseTx = {
         voucherId: voucher.id,
-        type: isRedeemed ? "redemption" : "deposit",
         customerAddress: voucherCustomer!,
         customerName,
         customerEmail,
@@ -291,16 +322,40 @@ function VoucherTransactionMapper({
         cylinderType: cylinderTypeName ?? `Type ${voucher.cylinderTypeId}`,
         cylinderSerial,
         cylinderCondition,
+        companyId: voucher.companyId,
         companyName,
-        branchName,
-        timestamp: isRedeemed
-          ? Number(voucherRedeemedAt)
-          : Number(voucherCreatedAt),
         status: mapVoucherStatus(voucherStatus!),
       };
-      onTransactionRef.current(tx);
+
+      onTransactionRef.current({
+        ...baseTx,
+        type: "deposit",
+        branchName: sourceBranchName,
+        sourceBranchId,
+        sourceBranchName,
+        redemptionBranchId: redemptionBranchId && redemptionBranchId > 0n ? redemptionBranchId : undefined,
+        redemptionBranchName,
+        depositedAt,
+        redeemedAt: redeemedAt > 0 ? redeemedAt : undefined,
+        timestamp: depositedAt,
+      });
+
+      if (isRedeemed) {
+        onTransactionRef.current({
+          ...baseTx,
+          type: "redemption",
+          branchName: redemptionBranchName,
+          sourceBranchId,
+          sourceBranchName,
+          redemptionBranchId,
+          redemptionBranchName,
+          depositedAt,
+          redeemedAt,
+          timestamp: redeemedAt,
+        });
+      }
     }
-  }, [voucher, isLoading, voucherId, voucherStatus, voucherCustomer, voucherCreatedAt, voucherRedeemedAt, cylinderTypeName, customerName, customerEmail, customerPhone, companyName, branchName, cylinderSerial]);
+  }, [voucher, isLoading, voucherId, voucherStatus, voucherCustomer, voucherCreatedAt, voucherRedeemedAt, cylinderTypeName, customerName, customerEmail, customerPhone, companyName, sourceBranchId, sourceBranchName, redemptionBranchId, redemptionBranchName, cylinderSerial, cylinderCondition]);
 
   return null;
 }
@@ -327,77 +382,36 @@ export function useRecentVouchers(limit: number = 10) {
   
   const { total, isLoading: isLoadingTotal } = useTotalVouchers();
   const [transactions, setTransactions] = useState<RecentTransaction[]>([]);
-  const [voucherIds, setVoucherIds] = useState<bigint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const startIndex =
     total !== undefined && total > BigInt(effectiveLimit)
-      ? total - BigInt(effectiveLimit)
-      : 0n;
+      ? total - BigInt(effectiveLimit) + 1n
+      : 1n;
   const count = total !== undefined ? Math.min(Number(total), effectiveLimit) : 0;
 
-  const allIndices: (bigint | undefined)[] = Array.from({ length: count }, (_, i) =>
+  const voucherIds: bigint[] = Array.from({ length: count }, (_, i) =>
     startIndex + BigInt(i)
-  );
-
-  // Pad indices to fit into 5 batches of 10 (50 max)
-  const paddedIndices: (bigint | undefined)[] = [...allIndices];
-  while (paddedIndices.length < 50) {
-    paddedIndices.push(undefined);
-  }
-
-  // Fetch in 5 batches of 10
-  const batch0 = useVoucherIdBatch(paddedIndices.slice(0, 10));
-  const batch1 = useVoucherIdBatch(paddedIndices.slice(10, 20));
-  const batch2 = useVoucherIdBatch(paddedIndices.slice(20, 30));
-  const batch3 = useVoucherIdBatch(paddedIndices.slice(30, 40));
-  const batch4 = useVoucherIdBatch(paddedIndices.slice(40, 50));
-
-  // Combine all batch results
-  const allBatchResults = [
-    batch0[0], batch0[1], batch0[2], batch0[3], batch0[4],
-    batch0[5], batch0[6], batch0[7], batch0[8], batch0[9],
-    batch1[0], batch1[1], batch1[2], batch1[3], batch1[4],
-    batch1[5], batch1[6], batch1[7], batch1[8], batch1[9],
-    batch2[0], batch2[1], batch2[2], batch2[3], batch2[4],
-    batch2[5], batch2[6], batch2[7], batch2[8], batch2[9],
-    batch3[0], batch3[1], batch3[2], batch3[3], batch3[4],
-    batch3[5], batch3[6], batch3[7], batch3[8], batch3[9],
-    batch4[0], batch4[1], batch4[2], batch4[3], batch4[4],
-    batch4[5], batch4[6], batch4[7], batch4[8], batch4[9],
-  ];
+  ).reverse();
 
   useEffect(() => {
-    const ids = allBatchResults
-      .filter((id): id is bigint => id !== undefined)
-      .reverse();
-    setVoucherIds(ids);
     if (!isLoadingTotal && total !== undefined) {
       setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    batch0[0], batch0[1], batch0[2], batch0[3], batch0[4],
-    batch0[5], batch0[6], batch0[7], batch0[8], batch0[9],
-    batch1[0], batch1[1], batch1[2], batch1[3], batch1[4],
-    batch1[5], batch1[6], batch1[7], batch1[8], batch1[9],
-    batch2[0], batch2[1], batch2[2], batch2[3], batch2[4],
-    batch2[5], batch2[6], batch2[7], batch2[8], batch2[9],
-    batch3[0], batch3[1], batch3[2], batch3[3], batch3[4],
-    batch3[5], batch3[6], batch3[7], batch3[8], batch3[9],
-    batch4[0], batch4[1], batch4[2], batch4[3], batch4[4],
-    batch4[5], batch4[6], batch4[7], batch4[8], batch4[9],
-    isLoadingTotal, total
-  ]);
+  }, [isLoadingTotal, total]);
 
   const handleTransaction = useCallback((tx: RecentTransaction) => {
     setTransactions((prev) => {
       const exists = prev.some(
-        (t) => t.voucherId.toString() === tx.voucherId.toString()
+        (t) =>
+          t.voucherId.toString() === tx.voucherId.toString() &&
+          t.type === tx.type
       );
       if (exists) {
         return prev.map((t) =>
-          t.voucherId.toString() === tx.voucherId.toString() ? tx : t
+          t.voucherId.toString() === tx.voucherId.toString() && t.type === tx.type
+            ? tx
+            : t
         );
       }
       const updated = [...prev, tx].sort(

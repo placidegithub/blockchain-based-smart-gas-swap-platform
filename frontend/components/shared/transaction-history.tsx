@@ -24,6 +24,41 @@ interface TransactionHistoryProps {
   className?: string;
 }
 
+function formatCylinderCondition(condition?: 'empty' | 'full'): string | null {
+  if (condition === 'full') return 'Full Cylinder';
+  if (condition === 'empty') return 'Empty Cylinder';
+  return null;
+}
+
+function transactionMatchesBranch(
+  tx: {
+    type: 'deposit' | 'redemption';
+    branchName?: string;
+    sourceBranchId?: bigint;
+    sourceBranchName?: string;
+    redemptionBranchId?: bigint;
+    redemptionBranchName?: string;
+  },
+  branchFilter?: string,
+  branchId?: string
+): boolean {
+  if (!branchFilter && !branchId) return true;
+
+  if (tx.type === 'deposit') {
+    return (
+      tx.sourceBranchId?.toString() === branchId ||
+      tx.sourceBranchName === branchFilter ||
+      tx.branchName === branchFilter
+    );
+  }
+
+  return (
+    tx.redemptionBranchId?.toString() === branchId ||
+    tx.redemptionBranchName === branchFilter ||
+    tx.branchName === branchFilter
+  );
+}
+
 export function TransactionHistory({
   title = 'Transaction History',
   description = 'All voucher transactions',
@@ -41,8 +76,8 @@ export function TransactionHistory({
     if (companyFilter) {
       filtered = filtered.filter((tx) => tx.companyName === companyFilter);
     }
-    if (branchFilter) {
-      filtered = filtered.filter((tx) => tx.branchName === branchFilter);
+    if (branchFilter || branchId) {
+      filtered = filtered.filter((tx) => transactionMatchesBranch(tx, branchFilter, branchId));
     }
     return filtered;
   })();
@@ -245,6 +280,7 @@ export function TransactionHistory({
             const txKey = `${tx.voucherId.toString()}-${tx.type}`;
             const isExpanded = expandedTxId === txKey;
             const paymentStatus = getPaymentStatus(tx.voucherId);
+            const conditionLabel = formatCylinderCondition(tx.cylinderCondition);
 
             return (
               <div
@@ -304,6 +340,14 @@ export function TransactionHistory({
                       <div className="text-xs text-muted-foreground">
                         {tx.cylinderType} • {formatRWF(getCylinderPrice(tx.cylinderType))}
                       </div>
+                      {conditionLabel && (
+                        <div className={cn(
+                          'text-xs font-medium',
+                          tx.cylinderCondition === 'full' ? 'text-green-400' : 'text-orange-400'
+                        )}>
+                          {conditionLabel}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -373,8 +417,20 @@ export function TransactionHistory({
                           )}
                           {tx.branchName && (
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Branch:</span>
+                              <span className="text-muted-foreground">Transaction Branch:</span>
                               <span>{tx.branchName}</span>
+                            </div>
+                          )}
+                          {tx.sourceBranchName && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Source Branch:</span>
+                              <span>{tx.sourceBranchName}</span>
+                            </div>
+                          )}
+                          {tx.redemptionBranchName && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Destination Branch:</span>
+                              <span>{tx.redemptionBranchName}</span>
                             </div>
                           )}
                           {tx.cylinderSerial && (
@@ -387,6 +443,14 @@ export function TransactionHistory({
                             <span className="text-muted-foreground">Created:</span>
                             <span>{formatDate(tx.timestamp)}</span>
                           </div>
+                          {conditionLabel && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Condition:</span>
+                              <span className={tx.cylinderCondition === 'full' ? 'text-green-400' : 'text-orange-400'}>
+                                {conditionLabel}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       {tx.txHash && (

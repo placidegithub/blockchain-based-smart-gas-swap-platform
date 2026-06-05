@@ -31,6 +31,26 @@ interface PaymentContext {
   cylinderType: string;
 }
 
+function transactionMatchesStaffBranch(
+  tx: {
+    type: 'deposit' | 'redemption';
+    branchName?: string;
+    sourceBranchId?: bigint;
+    sourceBranchName?: string;
+    redemptionBranchId?: bigint;
+    redemptionBranchName?: string;
+  },
+  staffBranch?: { id: bigint; name: string }
+): boolean {
+  if (!staffBranch) return true;
+
+  if (tx.type === 'deposit') {
+    return tx.sourceBranchId === staffBranch.id || tx.sourceBranchName === staffBranch.name || tx.branchName === staffBranch.name;
+  }
+
+  return tx.redemptionBranchId === staffBranch.id || tx.redemptionBranchName === staffBranch.name || tx.branchName === staffBranch.name;
+}
+
 export function StaffDashboard({ className }: StaffDashboardProps) {
   const [activeView, setActiveView] = useState<ActiveView>('dashboard');
   const [selectedBranchId, setSelectedBranchId] = useState<bigint | undefined>();
@@ -45,7 +65,7 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
   const { transactions, isLoading: isLoadingTransactions, VoucherMappers } = useRecentVouchers(50);
   const { branch: staffBranch, company: staffCompany, companyId: staffCompanyId, isLoading: isLoadingStaffInfo, isStaffAssigned } = useCurrentStaffInfo();
   const effectiveCompanyId = !isPlatformAdmin && staffCompanyId ? staffCompanyId : selectedCompanyId;
-  const effectiveBranchId = isPlatformAdmin ? selectedBranchId : undefined;
+  const effectiveBranchId = isPlatformAdmin ? selectedBranchId : staffBranch?.id;
   const { deposits: branchDeposits, redemptions: branchRedemptions, isLoading: isLoadingBranchStats } = useBranchStats(effectiveBranchId);
   const {
     totalDeposits: companyDeposits,
@@ -155,10 +175,7 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
   const filteredTransactions = !isPlatformAdmin && isStaffAssigned && staffCompany
     ? transactions.filter((tx) => {
         if (tx.companyName !== staffCompany.name) return false;
-        if (staffBranch?.name && tx.branchName) {
-          return tx.branchName === staffBranch.name;
-        }
-        return true;
+        return transactionMatchesStaffBranch(tx, staffBranch);
       })
     : transactions;
 
@@ -172,8 +189,15 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
     cylinderType: tx.cylinderType,
     cylinderSerial: tx.cylinderSerial,
     cylinderCondition: tx.cylinderCondition,
+    companyId: tx.companyId,
     companyName: tx.companyName,
     branchName: tx.branchName,
+    sourceBranchId: tx.sourceBranchId,
+    sourceBranchName: tx.sourceBranchName,
+    redemptionBranchId: tx.redemptionBranchId,
+    redemptionBranchName: tx.redemptionBranchName,
+    depositedAt: tx.depositedAt,
+    redeemedAt: tx.redeemedAt,
     timestamp: tx.timestamp,
     status: tx.status,
     paymentStatus: getPaymentStatus(tx.voucherId),
@@ -330,7 +354,7 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
     );
   }
 
-  const statsScope: 'branch' | 'company' | 'platform' = selectedBranchId && isPlatformAdmin
+  const statsScope: 'branch' | 'company' | 'platform' = effectiveBranchId
     ? 'branch'
     : effectiveCompanyId
       ? 'company'
@@ -354,9 +378,11 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
       ? Number(companyRedemptions)
       : platformStats?.completedSwaps ?? 0;
 
-  const activeVouchers = statsScope === 'company'
-    ? Number(companyActiveVouchers)
-    : Math.max(totalDeposits - totalRedemptions, 0);
+  const activeVouchers = statsScope === 'branch'
+    ? filteredTransactions.filter((tx) => tx.type === 'deposit' && tx.status === 'active').length
+    : statsScope === 'company'
+      ? Number(companyActiveVouchers)
+      : Math.max(totalDeposits - totalRedemptions, 0);
 
   const completedSwaps = totalRedemptions;
 

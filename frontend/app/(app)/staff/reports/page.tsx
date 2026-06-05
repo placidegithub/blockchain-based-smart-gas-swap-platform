@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePlatformStatsFormatted, useRecentVouchers, useRoles, useCompanies, useBranches, useBranch, useBranchStats, useCurrentStaffInfo } from '@/lib/hooks';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -18,6 +18,12 @@ interface PaymentContext {
   cylinderType: string;
 }
 
+function formatCylinderCondition(condition?: 'empty' | 'full'): string {
+  if (condition === 'full') return 'Full Cylinder';
+  if (condition === 'empty') return 'Empty Cylinder';
+  return 'Not recorded';
+}
+
 export default function ReportsPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<bigint | undefined>();
   const [selectedBranchId, setSelectedBranchId] = useState<bigint | undefined>();
@@ -33,9 +39,22 @@ export default function ReportsPage() {
   const { branchIds } = useBranches(selectedCompanyId);
   const { transactions, isLoading: isLoadingTransactions, total, VoucherMappers } = useRecentVouchers(20);
   const { deposits: branchDeposits, redemptions: branchRedemptions } = useBranchStats(selectedBranchId);
-  const { branch: staffBranch, company: staffCompany, isStaffAssigned } = useCurrentStaffInfo();
+  const {
+    branch: staffBranch,
+    company: staffCompany,
+    branchId: staffBranchId,
+    companyId: staffCompanyId,
+    isStaffAssigned,
+  } = useCurrentStaffInfo();
 
   const isAuthorized = isBranchStaff && !isPlatformAdmin;
+
+  useEffect(() => {
+    if (isStaffAssigned && staffCompanyId && staffBranchId && !selectedCompanyId && !selectedBranchId) {
+      setSelectedCompanyId(staffCompanyId);
+      setSelectedBranchId(staffBranchId);
+    }
+  }, [isStaffAssigned, staffCompanyId, staffBranchId, selectedCompanyId, selectedBranchId]);
 
   const handlePayClick = (voucherId: bigint, customerPhone: string, cylinderType: string, customerName?: string) => {
     setPaymentContext({ voucherId, customerPhone, customerName, cylinderType });
@@ -97,11 +116,21 @@ export default function ReportsPage() {
 
   const displayDeposits = selectedBranchId ? Number(branchDeposits) : (stats?.totalVouchers ?? 0);
   const displayRedemptions = selectedBranchId ? Number(branchRedemptions) : (stats?.completedSwaps ?? 0);
-  const activeVouchers = displayDeposits - displayRedemptions;
   const reportTransactions = transactions.map((tx) => ({
     ...tx,
     paymentStatus: getPaymentStatusForVoucher(tx.voucherId),
-  }));
+  })).filter((tx) => {
+    if (selectedBranchId) {
+      return tx.sourceBranchId === selectedBranchId || tx.redemptionBranchId === selectedBranchId;
+    }
+    if (selectedCompanyId) {
+      return tx.companyId === selectedCompanyId;
+    }
+    return true;
+  });
+  const activeVouchers = selectedBranchId
+    ? reportTransactions.filter((tx) => tx.type === 'deposit' && tx.status === 'active').length
+    : displayDeposits - displayRedemptions;
 
   if (showPaymentForm && paymentContext) {
     return (
@@ -244,7 +273,7 @@ export default function ReportsPage() {
               <CardDescription>
                 {isLoadingTransactions 
                   ? 'Loading transactions...'
-                  : `Showing ${transactions.length} recent transactions`}
+                  : `Showing ${reportTransactions.length} recent branch transaction${reportTransactions.length !== 1 ? 's' : ''}`}
               </CardDescription>
             </div>
             <Button
@@ -266,7 +295,7 @@ export default function ReportsPage() {
                 <div key={i} className="animate-pulse bg-muted/50 rounded-lg h-16" />
               ))}
             </div>
-          ) : transactions.length === 0 ? (
+          ) : reportTransactions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <svg
                 className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3"
@@ -292,6 +321,9 @@ export default function ReportsPage() {
                     <th className="pb-3 font-medium">Type</th>
                     <th className="pb-3 font-medium">Customer</th>
                     <th className="pb-3 font-medium">Cylinder</th>
+                    <th className="pb-3 font-medium">Condition</th>
+                    <th className="pb-3 font-medium">Source Branch</th>
+                    <th className="pb-3 font-medium">Destination Branch</th>
                     <th className="pb-3 font-medium">Amount</th>
                     <th className="pb-3 font-medium">Date</th>
                     <th className="pb-3 font-medium">Status</th>
@@ -300,13 +332,13 @@ export default function ReportsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {transactions.map((tx) => {
+                  {reportTransactions.map((tx) => {
                     const paymentStatus = getPaymentStatusForVoucher(tx.voucherId);
                     const isActive = tx.status === 'active' && tx.type === 'deposit';
                     const canPay = isActive && paymentStatus === 'unpaid';
                     
                     return (
-                      <tr key={tx.voucherId.toString()} className="text-sm">
+                      <tr key={`${tx.voucherId.toString()}-${tx.type}`} className="text-sm">
                         <td className="py-3 font-mono">#{tx.voucherId.toString()}</td>
                         <td className="py-3">
                           <span className={cn(
@@ -326,12 +358,46 @@ export default function ReportsPage() {
                             <div className="text-foreground text-xs">{tx.customerName}</div>
                           )}
                         </td>
-                        <td className="py-3">{tx.cylinderType}</td>
+                        <td className="py-3">
+                          {tx.cylinderType}
+                        </td>
+                        <td className="py-3">
+                          <span className={cn(
+                            'px-2 py-1 rounded text-xs font-medium border',
+                            tx.cylinderCondition === 'full' && 'text-green-400 bg-green-500/10 border-green-500/30',
+                            tx.cylinderCondition === 'empty' && 'text-orange-400 bg-orange-500/10 border-orange-500/30',
+                            !tx.cylinderCondition && 'text-muted-foreground bg-muted/20 border-border'
+                          )}>
+                            {formatCylinderCondition(tx.cylinderCondition)}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <div>{tx.sourceBranchName || 'Unknown'}</div>
+                          {tx.depositedAt && (
+                            <div className="text-xs text-muted-foreground">
+                              Received {formatDate(tx.depositedAt)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3">
+                          {tx.redemptionBranchName ? (
+                            <>
+                              <div>{tx.redemptionBranchName}</div>
+                              {tx.redeemedAt && (
+                                <div className="text-xs text-muted-foreground">
+                                  Given {formatDate(tx.redeemedAt)}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">Not redeemed yet</span>
+                          )}
+                        </td>
                         <td className="py-3 font-semibold text-cyan-400">
                           {formatRWF(getCylinderPrice(tx.cylinderType))}
                         </td>
                         <td className="py-3 text-muted-foreground">
-                          {formatDate(tx.timestamp)}
+                          <div>{formatDate(tx.timestamp)}</div>
                         </td>
                         <td className="py-3">
                           <span className={cn(
