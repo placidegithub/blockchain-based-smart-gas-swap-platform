@@ -153,8 +153,9 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
 
   const analytics = useMemo(() => {
     const deposits = transactions.filter((tx) => tx.type === 'deposit');
+    const redemptions = transactions.filter((tx) => tx.type === 'redemption');
     const totalVouchers = stats?.totalVouchers ?? 0;
-    const completedSwaps = stats?.completedSwaps ?? 0;
+    const completedSwaps = Math.max(stats?.completedSwaps ?? 0, redemptions.length);
     const validCurrentVoucherId = (voucherId: string) => {
       const numericId = Number(voucherId);
       return Number.isInteger(numericId) && numericId > 0 && numericId <= totalVouchers;
@@ -377,7 +378,7 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
           }
           color="purple"
         />
-        {/* <StatCard
+        <StatCard
           title="Cylinders"
           value={isLoadingStats ? '-' : stats?.totalCylinders ?? 0}
           icon={
@@ -386,7 +387,7 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
             </svg>
           }
           color="blue"
-        /> */}
+        />
         <StatCard
           title="Vouchers"
           value={isLoadingStats ? '-' : stats?.totalVouchers ?? 0}
@@ -399,7 +400,7 @@ export function AdminDashboard({ className }: AdminDashboardProps) {
         />
         <StatCard
           title="Completed Swaps"
-          value={isLoadingStats ? '-' : stats?.completedSwaps ?? 0}
+          value={isLoadingStats ? '-' : analytics.redemptions}
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
