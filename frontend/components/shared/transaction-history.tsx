@@ -7,6 +7,7 @@ import { cn, shortenAddress, formatDate } from '@/lib/utils';
 import { getCylinderPrice, formatRWF, getVoucherPaymentStatus, markVoucherAsPaid } from '@/lib/payment';
 import { isVoucherAlreadyPaid } from '@/lib/fund-storage';
 import { useRecentVouchers } from '@/lib/hooks';
+import { transactionMatchesBranchScope, transactionMatchesCompanyScope } from '@/lib/hooks/use-recent-vouchers';
 import { PaymentForm } from '@/components/payment';
 import { EtherscanTxLink } from './etherscan-link';
 import { exportTransactionsToCsv } from '@/lib/report-export';
@@ -30,35 +31,6 @@ function formatCylinderCondition(condition?: 'empty' | 'full'): string | null {
   return null;
 }
 
-function transactionMatchesBranch(
-  tx: {
-    type: 'deposit' | 'redemption';
-    branchName?: string;
-    sourceBranchId?: bigint;
-    sourceBranchName?: string;
-    redemptionBranchId?: bigint;
-    redemptionBranchName?: string;
-  },
-  branchFilter?: string,
-  branchId?: string
-): boolean {
-  if (!branchFilter && !branchId) return true;
-
-  if (tx.type === 'deposit') {
-    return (
-      tx.sourceBranchId?.toString() === branchId ||
-      tx.sourceBranchName === branchFilter ||
-      tx.branchName === branchFilter
-    );
-  }
-
-  return (
-    tx.redemptionBranchId?.toString() === branchId ||
-    tx.redemptionBranchName === branchFilter ||
-    tx.branchName === branchFilter
-  );
-}
-
 export function TransactionHistory({
   title = 'Transaction History',
   description = 'All voucher transactions',
@@ -73,11 +45,11 @@ export function TransactionHistory({
   const { transactions: allTransactions, isLoading, VoucherMappers } = useRecentVouchers(limit);
   const transactions = (() => {
     let filtered = allTransactions;
-    if (companyFilter) {
-      filtered = filtered.filter((tx) => tx.companyName === companyFilter);
+    if (companyFilter || companyId) {
+      filtered = filtered.filter((tx) => transactionMatchesCompanyScope(tx, companyId, companyFilter));
     }
     if (branchFilter || branchId) {
-      filtered = filtered.filter((tx) => transactionMatchesBranch(tx, branchFilter, branchId));
+      filtered = filtered.filter((tx) => transactionMatchesBranchScope(tx, branchId, branchFilter));
     }
     return filtered;
   })();

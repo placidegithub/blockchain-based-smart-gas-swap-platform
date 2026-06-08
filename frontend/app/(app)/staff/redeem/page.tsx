@@ -12,9 +12,9 @@ import {
   useVerifyVoucher,
   useVoucher,
 } from '@/lib/hooks/use-vouchers';
-import { useVoucherCustomerInfo } from '@/lib/hooks/use-recent-vouchers';
+import { saveLocalRedemptionTransaction, useVoucherCustomerInfo } from '@/lib/hooks/use-recent-vouchers';
 import { useCompleteSwap } from '@/lib/hooks/use-swap';
-import { useCompany, useBranch, useCompanyBranchInDistrict } from '@/lib/hooks/use-companies';
+import { useCompany, useBranch, useCompanyBranchInDistrict, useCurrentStaffInfo } from '@/lib/hooks/use-companies';
 import { useCylinderTypes, useCylinderType, useAvailableCylindersAtBranch } from '@/lib/hooks/use-cylinders';
 import { cn, formatVoucherId, saveVoucherIdMapping } from '@/lib/utils';
 import { formatRWF, getVoucherPaymentStatus } from '@/lib/payment';
@@ -92,23 +92,41 @@ export default function RedeemVoucherPage() {
   const { customerInfo, isLoading: isLoadingCustomer } = useVoucherCustomerInfo(voucherIdBigInt);
   const { company, isLoading: isLoadingCompany } = useCompany(voucher?.companyId);
   const { branch: sourceBranch, isLoading: isLoadingSourceBranch } = useBranch(voucher?.sourceBranchId);
+  const {
+    branchId: staffBranchId,
+    branch: staffBranch,
+    companyId: staffCompanyId,
+    isStaffAssigned,
+  } = useCurrentStaffInfo();
   const destinationDistrictName = selectedDistrictId
     ? RWANDA_DISTRICTS[Number(selectedDistrictId)]?.name || ''
-    : '';
+    : staffBranch?.district || '';
 
   // Find the company's actual active branch in the selected district.
   // This supports custom branches and newly added companies instead of relying on default branch ID math.
   const { branchId: companyDistrictBranchId, isLoading: isLoadingCompanyBranch } = useCompanyBranchInDistrict(
-    voucher?.companyId,
-    destinationDistrictName || undefined
+    isStaffAssigned ? undefined : voucher?.companyId,
+    isStaffAssigned ? undefined : destinationDistrictName || undefined
   );
   
-  // Auto-select the branch when district is selected (since there's only one per company per district)
+  // Staff redemptions must be recorded against the connected staff member's own branch.
   useEffect(() => {
+    if (isStaffAssigned && staffBranchId) {
+      setSelectedBranchId(staffBranchId.toString());
+
+      if (staffBranch?.district) {
+        const district = RWANDA_DISTRICTS.find((item) => item.name === staffBranch.district);
+        if (district) {
+          setSelectedDistrictId(district.id.toString());
+        }
+      }
+      return;
+    }
+
     if (companyDistrictBranchId && selectedDistrictId) {
       setSelectedBranchId(companyDistrictBranchId.toString());
     }
-  }, [companyDistrictBranchId, selectedDistrictId]);
+  }, [companyDistrictBranchId, selectedDistrictId, isStaffAssigned, staffBranchId, staffBranch]);
   const { cylinderTypes, isLoading: isLoadingCylinderTypes } = useCylinderTypes();
   const { cylinderType: cylinderTypeInfo, isLoading: isLoadingCylinderType } = useCylinderType(voucher?.cylinderTypeId);
   const { branch: destinationBranch } = useBranch(selectedBranchId ? BigInt(selectedBranchId) : undefined);
@@ -272,10 +290,44 @@ export default function RedeemVoucherPage() {
       setNotificationSent(true);
       if (scannedVoucherId) {
         setRedeemedVoucherIds(prev => new Set(prev).add(scannedVoucherId));
+        saveLocalRedemptionTransaction({
+          voucherId: scannedVoucherId,
+          customerAddress: voucher?.customer,
+          customerName: customerInfo?.name,
+          customerEmail: customerInfo?.email,
+          customerPhone: customerInfo?.phoneNumber,
+          cylinderType: cylinderType
+            ? `${cylinderType.name} (${Number(cylinderType.weightKg)}kg)`
+            : undefined,
+          cylinderSerial: newCylinderSerial || undefined,
+          companyId: voucher?.companyId,
+          companyName: company?.name,
+          sourceBranchId: voucher?.sourceBranchId,
+          sourceBranchName: sourceBranch?.name,
+          redemptionBranchId: selectedBranchId,
+          redemptionBranchName: destinationBranch?.name,
+          depositedAt: voucher?.createdAt ? Number(voucher.createdAt) : undefined,
+          redeemedAt: Math.floor(Date.now() / 1000),
+          txHash,
+        });
       }
       sendRedemptionNotification();
     }
-  }, [isRedeemSuccess, txHash, notificationSent, scannedVoucherId, sendRedemptionNotification]);
+  }, [
+    isRedeemSuccess,
+    txHash,
+    notificationSent,
+    scannedVoucherId,
+    voucher,
+    customerInfo,
+    cylinderType,
+    newCylinderSerial,
+    company,
+    sourceBranch,
+    selectedBranchId,
+    destinationBranch,
+    sendRedemptionNotification,
+  ]);
 
   const handleScan = (voucherId: string) => {
     if (redeemedVoucherIds.has(voucherId)) {

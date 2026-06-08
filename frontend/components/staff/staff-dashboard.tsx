@@ -16,6 +16,7 @@ import { NotificationStatusPanel } from './notification-status-panel';
 import { PaymentForm } from '@/components/payment';
 import { TransactionHistory } from '@/components/shared';
 import { getCylinderPrice, formatRWF, getVoucherPaymentStatus, markVoucherAsCancelled, markVoucherAsPaid, resetVoucherPaymentStatus } from '@/lib/payment';
+import { transactionMatchesBranchScope, transactionMatchesCompanyScope } from '@/lib/hooks/use-recent-vouchers';
 
 
 interface StaffDashboardProps {
@@ -29,26 +30,6 @@ interface PaymentContext {
   customerPhone: string;
   customerName?: string;
   cylinderType: string;
-}
-
-function transactionMatchesStaffBranch(
-  tx: {
-    type: 'deposit' | 'redemption';
-    branchName?: string;
-    sourceBranchId?: bigint;
-    sourceBranchName?: string;
-    redemptionBranchId?: bigint;
-    redemptionBranchName?: string;
-  },
-  staffBranch?: { id: bigint; name: string }
-): boolean {
-  if (!staffBranch) return true;
-
-  if (tx.type === 'deposit') {
-    return tx.sourceBranchId === staffBranch.id || tx.sourceBranchName === staffBranch.name || tx.branchName === staffBranch.name;
-  }
-
-  return tx.redemptionBranchId === staffBranch.id || tx.redemptionBranchName === staffBranch.name || tx.branchName === staffBranch.name;
 }
 
 export function StaffDashboard({ className }: StaffDashboardProps) {
@@ -174,8 +155,8 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
   
   const filteredTransactions = !isPlatformAdmin && isStaffAssigned && staffCompany
     ? transactions.filter((tx) => {
-        if (tx.companyName !== staffCompany.name) return false;
-        return transactionMatchesStaffBranch(tx, staffBranch);
+        if (!transactionMatchesCompanyScope(tx, staffCompany.id, staffCompany.name)) return false;
+        return transactionMatchesBranchScope(tx, staffBranch?.id, staffBranch?.name);
       })
     : transactions;
 
@@ -367,15 +348,15 @@ export function StaffDashboard({ className }: StaffDashboardProps) {
       : isLoadingPlatformStats;
 
   const totalDeposits = statsScope === 'branch'
-    ? Number(branchDeposits)
+    ? filteredTransactions.filter((tx) => tx.type === 'deposit').length
     : statsScope === 'company'
-      ? Number(companyDeposits)
+      ? filteredTransactions.filter((tx) => tx.type === 'deposit').length
       : platformStats?.totalVouchers ?? 0;
 
   const totalRedemptions = statsScope === 'branch'
-    ? Number(branchRedemptions)
+    ? filteredTransactions.filter((tx) => tx.type === 'redemption').length
     : statsScope === 'company'
-      ? Number(companyRedemptions)
+      ? filteredTransactions.filter((tx) => tx.type === 'redemption').length
       : platformStats?.completedSwaps ?? 0;
 
   const activeVouchers = statsScope === 'branch'

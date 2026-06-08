@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useCompleteSwap, useVerifyVoucher, useCompany, useBranch, useCylinderTypeById, useAvailableCylindersAtBranch, useCylinderBySerial, useCurrentStaffInfo } from '@/lib/hooks';
+import { useCompleteSwap, useVerifyVoucher, useVoucher, useCompany, useBranch, useCylinderTypeById, useAvailableCylindersAtBranch, useCylinderBySerial, useCurrentStaffInfo } from '@/lib/hooks';
+import { saveLocalRedemptionTransaction, useVoucherCustomerInfo } from '@/lib/hooks/use-recent-vouchers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -27,6 +28,11 @@ export function CompleteSwapForm({ initialVoucherId, voucherId, onSuccess, onCan
   const redeemedIdsRef = useRef<Set<string>>(new Set());
 
   const { verification, isLoading: isVerifying, error: verifyError, refetch: refetchVerification } = useVerifyVoucher(voucherIdToVerify);
+  const { voucher } = useVoucher(voucherIdToVerify);
+  const { customerInfo } = useVoucherCustomerInfo(voucherIdToVerify);
+  const { company } = useCompany(voucher?.companyId);
+  const { branch: sourceBranch } = useBranch(voucher?.sourceBranchId);
+  const { cylinderType } = useCylinderTypeById(voucher?.cylinderTypeId);
   const { completeSwap, isPending, isSuccess, isError, error, txHash, reset, isAuthorized, isLoadingRoles } = useCompleteSwap();
   const { branchId: staffBranchId, branch: staffBranch, isStaffAssigned } = useCurrentStaffInfo();
 
@@ -53,10 +59,44 @@ export function CompleteSwapForm({ initialVoucherId, voucherId, onSuccess, onCan
     if (isSuccess) {
       if (voucherIdToVerify) {
         redeemedIdsRef.current.add(voucherIdToVerify.toString());
+        saveLocalRedemptionTransaction({
+          voucherId: voucherIdToVerify,
+          customerAddress: voucher?.customer,
+          customerName: customerInfo?.name,
+          customerEmail: customerInfo?.email,
+          customerPhone: customerInfo?.phoneNumber,
+          cylinderType: cylinderType
+            ? `${cylinderType.name} (${Number(cylinderType.weightKg)}kg)`
+            : undefined,
+          cylinderSerial: newCylinderSerial || undefined,
+          companyId: verification?.companyId ?? voucher?.companyId,
+          companyName: company?.name,
+          sourceBranchId: voucher?.sourceBranchId,
+          sourceBranchName: sourceBranch?.name,
+          redemptionBranchId: branchIdInput,
+          redemptionBranchName: staffBranch?.name,
+          depositedAt: voucher?.createdAt ? Number(voucher.createdAt) : undefined,
+          redeemedAt: Math.floor(Date.now() / 1000),
+          txHash: txHash as string | undefined,
+        });
       }
       onSuccess?.();
     }
-  }, [isSuccess, voucherIdToVerify, onSuccess]);
+  }, [
+    isSuccess,
+    voucherIdToVerify,
+    voucher,
+    customerInfo,
+    cylinderType,
+    newCylinderSerial,
+    verification,
+    company,
+    sourceBranch,
+    branchIdInput,
+    staffBranch,
+    txHash,
+    onSuccess,
+  ]);
 
   const handleVerify = () => {
     if (!voucherIdInput.trim()) {

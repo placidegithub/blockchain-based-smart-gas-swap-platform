@@ -1,10 +1,12 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useVoucherManagerRead } from "./use-contracts";
 import { Voucher, VoucherStatus } from "./use-vouchers";
 import { useCylinderType, useCylinder } from "./use-cylinders";
 import { useCompany, useBranch } from "./use-companies";
 
 const RECENT_VOUCHERS_KEY = "gasswap_recent_vouchers";
+const LOCAL_REDEMPTIONS_KEY = "gasswap_local_redemption_transactions";
+const LOCAL_REDEMPTIONS_UPDATED_EVENT = "gasswap_local_redemptions_updated";
 const MAX_RECENT_VOUCHERS = 50;
 
 export interface StoredVoucherInfo {
@@ -116,6 +118,220 @@ export interface CustomerInfo {
   name: string;
   email: string;
   phoneNumber: string;
+}
+
+export interface LocalRedemptionTransactionInput {
+  voucherId: bigint | string;
+  customerAddress?: `0x${string}`;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  cylinderType?: string;
+  cylinderSerial?: string;
+  cylinderCondition?: "empty" | "full";
+  companyId?: bigint | string;
+  companyName?: string;
+  sourceBranchId?: bigint | string;
+  sourceBranchName?: string;
+  redemptionBranchId: bigint | string;
+  redemptionBranchName?: string;
+  depositedAt?: number;
+  redeemedAt?: number;
+  txHash?: string;
+}
+
+function normalizeName(value?: string): string | undefined {
+  const normalized = value?.trim().toLowerCase();
+  return normalized || undefined;
+}
+
+function toBigIntOrUndefined(value?: bigint | string): bigint | undefined {
+  if (value === undefined || value === "") return undefined;
+  try {
+    return typeof value === "bigint" ? value : BigInt(value);
+  } catch {
+    return undefined;
+  }
+}
+
+function getLocalRedemptionTransactions(limit = MAX_RECENT_VOUCHERS): RecentTransaction[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const stored = localStorage.getItem(LOCAL_REDEMPTIONS_KEY);
+    const rows = stored ? JSON.parse(stored) as LocalRedemptionTransactionInput[] : [];
+
+    const transactions: RecentTransaction[] = [];
+
+    for (const row of rows) {
+      const voucherId = toBigIntOrUndefined(row.voucherId);
+      const redemptionBranchId = toBigIntOrUndefined(row.redemptionBranchId);
+      if (!voucherId || !redemptionBranchId) continue;
+
+      const redeemedAt = row.redeemedAt ?? Math.floor(Date.now() / 1000);
+      transactions.push({
+        voucherId,
+        type: "redemption" as const,
+        customerAddress: row.customerAddress ?? "0x0000000000000000000000000000000000000000",
+        customerName: row.customerName,
+        customerEmail: row.customerEmail,
+        customerPhone: row.customerPhone,
+        cylinderType: row.cylinderType ?? "Cylinder",
+        cylinderSerial: row.cylinderSerial,
+        cylinderCondition: row.cylinderCondition,
+        companyId: toBigIntOrUndefined(row.companyId),
+        companyName: row.companyName,
+        branchName: row.redemptionBranchName,
+        sourceBranchId: toBigIntOrUndefined(row.sourceBranchId),
+        sourceBranchName: row.sourceBranchName,
+        redemptionBranchId,
+        redemptionBranchName: row.redemptionBranchName,
+        depositedAt: row.depositedAt,
+        redeemedAt,
+        timestamp: redeemedAt,
+        status: "redeemed" as const,
+        txHash: row.txHash,
+      });
+    }
+
+    return transactions
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, limit);
+  } catch (error) {
+    console.error("Failed to read local redemption transactions:", error);
+    return [];
+  }
+}
+
+export function saveLocalRedemptionTransaction(input: LocalRedemptionTransactionInput): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    const stored = localStorage.getItem(LOCAL_REDEMPTIONS_KEY);
+    const rows = stored ? JSON.parse(stored) as LocalRedemptionTransactionInput[] : [];
+    const voucherId = input.voucherId.toString();
+
+    const nextRow: LocalRedemptionTransactionInput = {
+      ...input,
+      voucherId,
+      companyId: input.companyId?.toString(),
+      sourceBranchId: input.sourceBranchId?.toString(),
+      redemptionBranchId: input.redemptionBranchId.toString(),
+      redeemedAt: input.redeemedAt ?? Math.floor(Date.now() / 1000),
+    };
+
+    const withoutDuplicate = rows.filter((row) => row.voucherId.toString() !== voucherId);
+    localStorage.setItem(
+      LOCAL_REDEMPTIONS_KEY,
+      JSON.stringify([nextRow, ...withoutDuplicate].slice(0, MAX_RECENT_VOUCHERS))
+    );
+    window.dispatchEvent(new CustomEvent(LOCAL_REDEMPTIONS_UPDATED_EVENT));
+  } catch (error) {
+    console.error("Failed to save local redemption transaction:", error);
+  }
+}
+
+function useLocalRedemptionTransactions(limit: number) {
+  const [transactions, setTransactions] = useState<RecentTransaction[]>([]);
+
+  const refresh = useCallback(() => {
+    setTransactions(getLocalRedemptionTransactions(limit));
+  }, [limit]);
+
+  useEffect(() => {
+    refresh();
+    window.addEventListener(LOCAL_REDEMPTIONS_UPDATED_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener(LOCAL_REDEMPTIONS_UPDATED_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, [refresh]);
+
+  return transactions;
+}
+
+function mergeTransactionRecords(
+  preferred: RecentTransaction,
+  fallback?: RecentTransaction
+): RecentTransaction {
+  if (!fallback) return preferred;
+
+  return {
+    ...fallback,
+    ...preferred,
+    customerAddress: preferred.customerAddress || fallback.customerAddress,
+    customerName: preferred.customerName ?? fallback.customerName,
+    customerEmail: preferred.customerEmail ?? fallback.customerEmail,
+    customerPhone: preferred.customerPhone ?? fallback.customerPhone,
+    cylinderType: preferred.cylinderType || fallback.cylinderType,
+    cylinderSerial: preferred.cylinderSerial ?? fallback.cylinderSerial,
+    cylinderCondition: preferred.cylinderCondition ?? fallback.cylinderCondition,
+    companyId: preferred.companyId ?? fallback.companyId,
+    companyName: preferred.companyName ?? fallback.companyName,
+    branchName: preferred.branchName ?? fallback.branchName,
+    sourceBranchId: preferred.sourceBranchId ?? fallback.sourceBranchId,
+    sourceBranchName: preferred.sourceBranchName ?? fallback.sourceBranchName,
+    redemptionBranchId: preferred.redemptionBranchId ?? fallback.redemptionBranchId,
+    redemptionBranchName: preferred.redemptionBranchName ?? fallback.redemptionBranchName,
+    depositedAt: preferred.depositedAt ?? fallback.depositedAt,
+    redeemedAt: preferred.redeemedAt ?? fallback.redeemedAt,
+    timestamp: preferred.timestamp || fallback.timestamp,
+    status: preferred.status,
+    txHash: preferred.txHash ?? fallback.txHash,
+  };
+}
+
+export function transactionMatchesCompanyScope(
+  tx: Pick<RecentTransaction, "companyId" | "companyName">,
+  companyId?: bigint | string,
+  companyName?: string
+): boolean {
+  if (!companyId && !companyName) return true;
+
+  const expectedCompanyId = companyId?.toString();
+  if (expectedCompanyId && tx.companyId?.toString() === expectedCompanyId) {
+    return true;
+  }
+
+  const expectedCompanyName = normalizeName(companyName);
+  return Boolean(
+    expectedCompanyName &&
+    normalizeName(tx.companyName) === expectedCompanyName
+  );
+}
+
+export function transactionMatchesBranchScope(
+  tx: Pick<
+    RecentTransaction,
+    | "type"
+    | "branchName"
+    | "sourceBranchId"
+    | "sourceBranchName"
+    | "redemptionBranchId"
+    | "redemptionBranchName"
+  >,
+  branchId?: bigint | string,
+  branchName?: string
+): boolean {
+  if (!branchId && !branchName) return true;
+
+  const expectedBranchId = branchId?.toString();
+  const expectedBranchName = normalizeName(branchName);
+
+  if (tx.type === "deposit") {
+    return Boolean(
+      (expectedBranchId && tx.sourceBranchId?.toString() === expectedBranchId) ||
+      (expectedBranchName && normalizeName(tx.sourceBranchName) === expectedBranchName) ||
+      (expectedBranchName && normalizeName(tx.branchName) === expectedBranchName)
+    );
+  }
+
+  return Boolean(
+    (expectedBranchId && tx.redemptionBranchId?.toString() === expectedBranchId) ||
+    (expectedBranchName && normalizeName(tx.redemptionBranchName) === expectedBranchName) ||
+    (expectedBranchName && normalizeName(tx.branchName) === expectedBranchName)
+  );
 }
 
 export function useTotalVouchers() {
@@ -383,6 +599,7 @@ export function useRecentVouchers(limit: number = 10) {
   const { total, isLoading: isLoadingTotal } = useTotalVouchers();
   const [transactions, setTransactions] = useState<RecentTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const localRedemptions = useLocalRedemptionTransactions(effectiveLimit);
 
   const startIndex =
     total !== undefined && total > BigInt(effectiveLimit)
@@ -421,8 +638,26 @@ export function useRecentVouchers(limit: number = 10) {
     });
   }, [effectiveLimit]);
 
+  const mergedTransactions = useMemo(() => {
+    const byKey = new Map<string, RecentTransaction>();
+
+    for (const tx of localRedemptions) {
+      byKey.set(`${tx.voucherId.toString()}-${tx.type}`, tx);
+    }
+
+    for (const tx of transactions) {
+      const key = `${tx.voucherId.toString()}-${tx.type}`;
+      const existing = byKey.get(key);
+      byKey.set(key, mergeTransactionRecords(tx, existing));
+    }
+
+    return Array.from(byKey.values())
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, effectiveLimit);
+  }, [transactions, localRedemptions, effectiveLimit]);
+
   return {
-    transactions,
+    transactions: mergedTransactions,
     voucherIds,
     isLoading: isLoading || isLoadingTotal,
     total: total ? Number(total) : 0,

@@ -10,6 +10,7 @@ import { PaymentForm } from '@/components/payment';
 import { getCylinderPrice, formatRWF, getVoucherPaymentStatus, markVoucherAsCancelled } from '@/lib/payment';
 import { exportTransactionsToCsv } from '@/lib/report-export';
 import { Banknote, XCircle, Loader2, Download } from 'lucide-react';
+import { transactionMatchesBranchScope, transactionMatchesCompanyScope } from '@/lib/hooks/use-recent-vouchers';
 
 interface PaymentContext {
   voucherId: bigint;
@@ -114,20 +115,38 @@ export default function ReportsPage() {
     );
   }
 
-  const displayDeposits = selectedBranchId ? Number(branchDeposits) : (stats?.totalVouchers ?? 0);
-  const displayRedemptions = selectedBranchId ? Number(branchRedemptions) : (stats?.completedSwaps ?? 0);
   const reportTransactions = transactions.map((tx) => ({
     ...tx,
     paymentStatus: getPaymentStatusForVoucher(tx.voucherId),
   })).filter((tx) => {
     if (selectedBranchId) {
-      return tx.sourceBranchId === selectedBranchId || tx.redemptionBranchId === selectedBranchId;
+      return transactionMatchesBranchScope(
+        tx,
+        selectedBranchId,
+        selectedBranchId === staffBranchId ? staffBranch?.name : undefined
+      );
     }
     if (selectedCompanyId) {
-      return tx.companyId === selectedCompanyId;
+      return transactionMatchesCompanyScope(
+        tx,
+        selectedCompanyId,
+        selectedCompanyId === staffCompanyId ? staffCompany?.name : undefined
+      );
     }
     return true;
   });
+  const filteredDeposits = reportTransactions.filter((tx) => tx.type === 'deposit').length;
+  const filteredRedemptions = reportTransactions.filter((tx) => tx.type === 'redemption').length;
+  const displayDeposits = selectedBranchId
+    ? filteredDeposits
+    : selectedCompanyId
+      ? filteredDeposits
+      : (stats?.totalVouchers ?? filteredDeposits);
+  const displayRedemptions = selectedBranchId
+    ? filteredRedemptions
+    : selectedCompanyId
+      ? filteredRedemptions
+      : (stats?.completedSwaps ?? filteredRedemptions);
   const activeVouchers = selectedBranchId
     ? reportTransactions.filter((tx) => tx.type === 'deposit' && tx.status === 'active').length
     : displayDeposits - displayRedemptions;
